@@ -1,0 +1,1308 @@
+---
+title: "Tom's Cookbook for Better Viz"
+date: "Last updated: `r format(Sys.Date())`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+    theme: cosmo
+    dpi: 500
+    fig_width: 10
+    fig_height: 8
+---
+
+```{r setup, include=FALSE, echo=TRUE, warning=FALSE}
+library(tidyverse) # Data Cleaning, manipulation, summarization, plotting
+library(gt) # beautiful tables
+library(DT) # beautiful interactive tables
+library(ggthemes) # custom pre-built themes
+library(bbplot) # more themes
+library(ggtext) # custom text color
+library(teamcolors) # NFL team colors and logos
+library(ggforce) # better annotations
+library(ggridges) # many distributions at once
+library(ggrepel) # better labels
+```
+
+# How to improve your `nflscrapR` graphics
+
+This resource is modeled after the fantastic [BBC Graphics Cookbook](https://bbc.github.io/rcookbook/), which is also worth checking out. The `nflscrapR` team ([Maksim Horowitz](https://twitter.com/bklynmaks/), [Ron Yurko](https://twitter.com/Stat_Ron/), and [Sam Ventura](https://twitter.com/stat_sam/)) have compiled easy to access play-by-play stats opening a deeper world of NFL analytics for reporters, bloggers and enthusiasts (and probably some NFL teams). [Ben Baldwin]() has compiled a [quickstart guide](https://gist.github.com/guga31bb/5634562c5a2a7b1e9961ac9b6c568701) to using this data. As such, this resource is not aimed at reproducing that tutorial, but giving you some quick guides aimated at improving the graphics you create via `ggplot2`. It's easy to get started quickly exploring the data with `ggplot2` and hopefully this helps with your "publication" quality plots.
+
+## Additional Resources
+
+If you'd rather go deeper into a textbook and ignore specific applications related to `nflscrapR`, check out these amazing free online resources (some available in print as well):  
+
+| Title/Link | Author | Description |
+| :--- | :--- |:---------------|
+| [SocViz](https://socviz.co/lookatdata.html#lookatdata) | Kieran Hiely | Covers exactly how to create a lot of different plot types in `R`/`ggplot2` |
+| [Fundamentals of Data Viz](https://serialmentor.com/dataviz/) | Claus Wilke | Covers the WHY of Data Viz where all examples are in R, but no code examples in the book, but are available on his [GitHub](https://github.com/clauswilke/dataviz) |
+| [BBPlot Cookbook](https://bbc.github.io/rcookbook/) | BBC Data Team | Intro primer to news-style graphics in `ggplot2` |
+| [`ggplot2` cookbook](http://www.cookbook-r.com/Graphs/) |  Winston Chang | Quick cookbook of `ggplot2` plots |
+| [R Graph Gallery](https://www.r-graph-gallery.com/) | Yan Holtz | Cookbook examples of a majority of plot types. |
+
+
+## Useful code chunks
+
+There are a couple features that we will use throughout these examples:
+
+### `dplyr::if_else()`
+
+This allows you to make a binary conversion.
+
+For example `if_else(condition, true, false)`  
+* `success = if_else(epa > 0, 1, 0)`  
+* `color = if_else(posteam == "PIT", "yellow", "grey)`  
+
+### `scale_color_identity()`
+
+This is useful in combination with the above example of assigning color in a plot, essentially it will take the "yellow" or "grey" argument automatically.
+
+### `scale_color_manual()` 
+
+This allows you to specify colors of interest
+
+### `forcats::reorder()`
+
+This allows you to reorder levels of a `ggplot` by another variable.
+
+
+## Prep
+
+This allows you to assign multiple evaluation steps
+
+### Load all the libraries you need
+
+There are a few packages I will use in this guide, most of them related to data viz.
+
+```{r eval=FALSE}
+library(tidyverse) # Data Cleaning, manipulation, summarization, plotting
+library(gt) # beautiful tables
+library(DT) # beautiful interactive tables
+library(ggthemes) # custom pre-built themes
+library(bbplot) # more themes
+library(ggtext) # custom text color
+library(teamcolors) # NFL team colors and logos
+library(ggforce) # better annotations
+library(ggridges) # many distributions at once
+library(ggrepel) # better labels
+```
+
+### Read in the pbp data
+
+This is taken almost verbatim from Ben's Tutorial, but the idea is that you are adjusting the dataset to be ready for analysis. If you are interested in plays beyond pass/rush then you should probably NOT do these steps.
+
+```{r, message=FALSE, warning=FALSE}
+pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
+
+# clean up the data for further analysis
+pbp_rp <- pbp %>%
+  # grab only penalties, pass, and run plays
+  filter(!is.na(epa), play_type == "no_play" | play_type == "pass" | play_type == "run") %>%
+  # create pass, rush and success columns
+  mutate(
+    pass = if_else(str_detect(desc, "(pass)|(sacked)|(scramble)"), 1, 0),
+    rush = if_else(str_detect(desc, "(left end)|(left tackle)|(left guard)|(up the middle)|(right guard)|(right tackle)|(right end)") & pass == 0, 1, 0),
+    success = ifelse(epa > 0, 1, 0)
+  ) %>%
+  # filter to only pass or rush plays
+  filter(pass == 1 | rush == 1) %>%
+  mutate(
+    passer_player_name = ifelse(play_type == "no_play" & pass == 1,
+      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((pass)|(sack)|(scramble)))"),
+      passer_player_name
+    ),
+    receiver_player_name = ifelse(play_type == "no_play" & str_detect(desc, "pass"),
+      str_extract(
+        desc,
+        "(?<=to\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?"
+      ),
+      receiver_player_name
+    ),
+    rusher_player_name = ifelse(play_type == "no_play" & rush == 1,
+      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((left end)|(left tackle)|(left guard)|		(up the middle)|(right guard)|(right tackle)|(right end)))"),
+      rusher_player_name
+    )
+  ) %>%
+  mutate(
+    name = if_else(!is.na(passer_player_name), passer_player_name, rusher_player_name),
+    rusher = rusher_player_name,
+    receiver = receiver_player_name,
+    play = 1
+  )
+```
+
+## Our first data summary
+
+This is also credited to Ben:
+
+"Let's look at which teams were the most pass-heavy in the first half on early downs with win probability between 20 and 80, excluding the final 2 minutes of the half when everyone is pass-happy:"
+
+```{r}
+schotty <- pbp_rp %>%
+  filter(wp > .20 & wp < .80 & down <= 2 & qtr <= 2 & half_seconds_remaining > 120) %>%
+  group_by(posteam) %>%
+  summarize(mean_pass = mean(pass), 
+            plays = n()) %>%
+  arrange(mean_pass)
+
+schotty
+```
+
+"The Seahawks were playing a different sport in 2018. Fun! Let's see what that looks like:"
+
+```{r}
+ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+	    geom_text(aes(label = posteam))
+```
+
+Now this is a useful plot, but as Ben said: 
+"This image is kind of a mess -- we still need a title, axis labels, etc -- but gets the point across. We'll get to that other stuff later."
+
+Let's get to that stuff now!
+
+### Themes
+
+`ggplot2` out of the box comes with a bunch of themes, things like `theme_bw()`, `theme_minimal()`, `theme_classic()`, and the default `theme_grey()`.
+
+Let's see what they look like with the same plot as above.
+
+`theme_bw()`  
+
+- Notice that we now have grey gridlines, a black border, and a white background.  
+
+```{r, echo = FALSE}
+ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+  geom_text(aes(label = posteam)) +
+  theme_bw()
+```
+
+`theme_minimal()`  
+- Notice that we still have grey gridlines, a white background, but now no black border.  
+
+```{r, echo = FALSE}
+ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+  geom_text(aes(label = posteam)) +
+  theme_minimal()
+```
+
+`theme_classic()`  
+
+- Notice that we now have NO gridlines, a half black border, and the same white background.  
+
+```{r, echo = FALSE}
+ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+  geom_text(aes(label = posteam)) +
+  theme_classic()
+```
+
+But as with almost everything in `R`, there are more packages that add more functionality! In this case, there are entire packages dedicated to themes in `ggplot2` and you have the ability to build your own themes!
+
+### More themes
+
+```{r, eval = FALSE}
+library(ggthemes)
+library(bbplot)
+```
+
+The [`ggthemes` package](https://github.com/jrnold/ggthemes) gives you a wide assortment of additional themes as seen [here](https://yutannihilation.github.io/allYourFigureAreBelongToUs/ggthemes/). Most importantly it also gives you ideas about customizations to your personal theme. If you parse through the source code, you can create your own theme and utilize across your visualizations.
+
+`theme_fivethirtyeight()`  
+
+- The difference from `theme_minimal()` is ironically, *minimal* but the main difference is heavier grey gridlines, and a subtle grey background - which aligns with the `FiveThirtyEight` style.  
+
+```{r, echo = FALSE}
+ggplot(schotty, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
+  geom_text(aes(label = posteam)) +
+  theme_fivethirtyeight()
+```
+
+Again, the exciting part about `ggthemes` in my mind is the concept of creating your **own** theme. In fact, the code for this theme is pretty simple!
+
+```{r, eval = FALSE}
+theme_fivethirtyeight <- function(base_size = 12, base_family = "sans") {
+  colors <- deframe(ggthemes::ggthemes_data[["fivethirtyeight"]])
+  (theme_foundation(base_size = base_size, base_family = base_family)
+  + theme(
+      line = element_line(colour = "black"),
+      rect = element_rect(
+        fill = colors["Light Gray"],
+        linetype = 0, colour = NA
+      ),
+      text = element_text(colour = colors["Dark Gray"]),
+      axis.title = element_blank(),
+      axis.text = element_text(),
+      axis.ticks = element_blank(),
+      axis.line = element_blank(),
+      legend.background = element_rect(),
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      legend.box = "vertical",
+      panel.grid = element_line(colour = NULL),
+      panel.grid.major =
+        element_line(colour = colors["Medium Gray"]),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(hjust = 0, size = rel(1.5), face = "bold"),
+      plot.margin = unit(c(1, 1, 1, 1), "lines"),
+      strip.background = element_rect()
+    ))
+}
+```
+
+
+### Edited Theme
+
+I personally edited this so that it didn't remove axis titles, and to have a white background instead of gray, which you can see below.
+
+```{r}
+theme_538 <- function(base_size = 12, font = "Lato") {
+
+  # Text setting
+  txt <- element_text(size = base_size + 2, colour = "black", face = "plain")
+  bold_txt <- element_text(
+    size = base_size + 2, colour = "black",
+    family = "Montserrat", face = "bold"
+  )
+  large_txt <- element_text(size = base_size + 4, color = "black", face = "bold")
+
+
+  theme_minimal(base_size = base_size, base_family = font) +
+    theme(
+      # Legend Settings
+      legend.key = element_blank(),
+      legend.background = element_blank(),
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      legend.box = "vertical",
+
+      # Backgrounds
+      strip.background = element_blank(),
+      strip.text = large_txt,
+      plot.background = element_rect(),
+      plot.margin = unit(c(1, 1, 1, 1), "lines"),
+
+      # Axis & Titles
+      text = txt,
+      axis.text = txt,
+      axis.ticks = element_blank(),
+      axis.line = element_blank(),
+      axis.title = bold_txt,
+      plot.title = large_txt,
+
+      # Panel
+      panel.grid = element_line(colour = NULL),
+      panel.grid.major = element_line(colour = "#D2D2D2"),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      panel.border = element_blank()
+    )
+}
+```
+<br>
+```{r, echo = FALSE}
+ggplot(schotty, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
+  geom_text(aes(label = posteam)) +
+  theme_538()
+```
+
+Regardless - the idea here is that you can:
+- A) use a built in theme (theme_bw, theme_minimal, etc), 
+- B) a pre-built theme (bbplot, ggthemes, etc)
+- C) Or build your own theme!  
+
+All are valid, but you don't necessarily have to actually manually code the theme element changes to each and every plot. You can at the least write your own theme as a function and use it. Alternatively, you can write your own package (scarier than it sounds!) and source that.
+
+If you would like to read more about customizing your OWN theme - check out the great resource by Simon Jackson at his [blog](https://drsimonj.svbtle.com/creating-corporate-colour-palettes-for-ggplot2).
+
+## Line Charts
+
+Basic line chart = `ggplot() + geom_line()`  
+
+```{r}
+# Prepare data
+wr_duel <- pbp_rp %>%
+  filter(receiver %in% c("A.Brown", "J.Smith-Schuster")) %>%
+  group_by(game_date, receiver) %>%
+  summarize(mean_epa = mean(epa, na.rm = TRUE))
+
+ggplot(
+  wr_duel,
+  aes(x = game_date, y = mean_epa, color = receiver)
+) +
+  geom_line(size = 1)
+```
+
+### Let's improve this a bit.
+
+```{r}
+wr_duel_plot <- ggplot(
+  wr_duel,
+  aes(x = game_date, y = mean_epa, color = receiver)
+) +
+  geom_line(size = 1) +
+  theme_538() +
+  geom_hline(yintercept = 0, size = 1, color = "black") +
+  labs(
+    x = "\nGame Date",
+    y = "EPA (Average)",
+    title = "Quick comparison of AB vs Juju across the 2018 season",
+    caption = "Data: @nflscrapR"
+  )
+
+wr_duel_plot
+```
+
+
+
+### Change the colors
+
+But we can still improve this a lot - it feels a bit crowded, plus the red/blue colro scheme doesn't align with the team's color or anything else. We can add colored text via the [`ggtext` package](https://github.com/clauswilke/ggtext), or we can manually change the colors. Also note that you can grab the team's colors via `teamcolors` package.
+
+
+```{r}
+pit_colors <- teamcolors %>% 
+  filter(name == "Pittsburgh Steelers") %>%
+  select(name:secondary)
+
+pit_colors
+
+pit_primary <- pull(pit_colors, primary)
+pit_secondary <- pull(pit_colors, secondary)
+```
+
+
+### Asign the colors
+
+```{r}
+wr_duel_plot <- ggplot(wr_duel,
+               aes(x = game_date, y = mean_epa, 
+                   color = if_else(receiver == "A.Brown", pit_primary, pit_secondary))) +
+  geom_line(size = 1) +
+  theme_538() +
+  geom_hline(yintercept = 0, size = 1, color = "black") +
+  labs(x = "",
+       y = "EPA (Average)",
+       title = "Quick comparison of <span style='color:#000000'>**AB**</span> vs <span style='color:#ffb612'>**Juju**</span> across the 2018 season",
+       caption = "Data: @nflscrapR") +
+  scale_color_identity() +
+  theme(plot.title = element_markdown())
+
+wr_duel_plot
+```
+
+### Add the legend back
+
+Alternatively, if you didn't want to drop a legend, you could approach it this way.
+
+```{r}
+wr_duel_plot <- ggplot(
+  wr_duel,
+  aes(
+    x = game_date, y = mean_epa,
+    color = receiver
+  )
+) +
+  geom_line(size = 1) +
+  theme_538() +
+  geom_hline(yintercept = 0, size = 1, color = "black") +
+  labs(
+    x = "",
+    y = "EPA (Average)",
+    title = "Quick comparison of AB vs Juju across the 2018 season",
+    caption = "Data: @nflscrapR"
+  ) +
+  scale_color_manual(values = c(pit_primary, pit_secondary)) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.2, 0.1)
+  )
+
+wr_duel_plot
+```
+
+### Or try direct labeling!
+
+```{r}
+wr_duel_plot +
+  theme(legend.position = "none") +
+  geom_text(data = filter(wr_duel, game_date == "2018-09-09"),
+            aes(x = game_date, y = mean_epa, label = receiver),
+            hjust = 0, nudge_y = 0.1, size = 4
+  ) +
+  geom_point(data = filter(wr_duel, game_date == "2018-09-09"), 
+             size = 3
+  )
+```
+
+### More than a linear time series
+
+You could also try out a connected line plot.
+
+```{r}
+# Prepare data
+juju_do_it <- pbp_rp %>%
+  filter(receiver == "J.Smith-Schuster") %>%
+  arrange(desc(game_date)) %>%
+  group_by(game_date) %>%
+  summarize(
+    total_yards = sum(yards_gained, na.rm = TRUE),
+    total_airyards = sum(air_yards, na.rm = TRUE)
+  ) %>%
+  head(5) %>%
+  mutate(
+    game_num = row_number(),
+    game_text = glue::glue("Game {game_num}")
+  )
+
+ggplot(juju_do_it, aes(x = total_airyards, y = total_yards, color = game_num)) +
+  geom_point(size = 3) +
+  # geom path follows the order of underlying data
+  geom_path(size = 1) +
+  # creates a line for comparison
+  geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed") +
+  # adds labels to only game 1 and 5
+  geom_text(
+    data = filter(juju_do_it, game_num %in% c(1, 5)),
+    aes(label = game_text),
+    hjust = 1, nudge_x = -5
+  ) +
+  # set scales for 0-axis
+  scale_x_continuous(limits = c(0, 140)) +
+  scale_y_continuous(limits = c(0, 140)) +
+  # change color gradient to start at black and transition to yellow
+  scale_color_gradient(low = pit_primary, high = pit_secondary) +
+  theme_538() +
+  labs(
+    x = "\nTotal Air Yards",
+    y = "Total Yards\n",
+    title = "Even with his highest Air Yardage, Juju struggled in Game 4",
+    caption = "Data: @nflscrapR"
+  ) +
+  theme(legend.position = "none")
+```
+
+Notice that the above plot has a diagonal trend line that runs intersecting at 0 with a slope of 1:
+
+`geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed")`
+
+This basic call can be applied to lots of different plots to give a reference line, where you can separate plays/players/teams into above/below the line.
+
+## Bar Charts
+
+Everyone's favorite - bar charts! But always remember that bar charts can limit information - we'll look at distribution plots of various types later, but for now back to the bar.
+
+```{r}
+rb_trio <- pbp_rp %>%
+  filter(
+    posteam == "PIT",
+    receiver %in% c("J.Conner", "J.Samuels", "S.Ridley") |
+      rusher %in% c("J.Conner", "J.Samuels", "S.Ridley"),
+    play_type != "no_play"
+  ) %>%
+  mutate(
+    # Assign a single player name for filtering regardless of play_type
+    player = if_else(is.na(receiver), rusher, receiver),
+    # Add nice labels to play_type
+    play_type = factor(play_type, labels = c("Reception", "Rush"))
+  ) %>%
+  group_by(player, play_type) %>%
+  summarize(
+    n = n(),
+    mean_yards = sum(yards_gained, na.rm = TRUE) / n,
+    mean_success = sum(success, na.rm = TRUE) / n
+  )
+
+rb_trio_plot <- rb_trio %>%
+  ggplot(aes(x = player, y = mean_yards)) +
+  geom_col(aes(fill = play_type), position = "dodge")
+
+rb_trio_plot
+```
+
+Something to notice above - we have created a "grouped" bar chart, where the bars are grouped by player and color is assigned to play type. We can split this out into facets as an alternative representation.
+
+### Facets
+
+```{r}
+rb_trio_plot <- rb_trio %>%
+  ggplot(aes(x = player, y = mean_yards, fill = player, position = "dodge", group = play_type)) +
+  geom_col() +
+  facet_grid(~play_type)
+
+rb_trio_plot
+```
+
+Now we are adding color by player and separating into small multiples or facets that represent the play type.
+
+
+### Let's raise the bar
+
+```{r}
+rb_trio_plot +
+  geom_hline(yintercept = 0.03, color = "black", size = 2) +
+  theme_538() +
+  scale_fill_manual(values = c(pit_primary, pit_secondary, "grey")) +
+  labs(
+    x = "",
+    y = "Avg Yards per Play",
+    title = "Conner and Samuels were interchangeable in 2018",
+    subtitle = "Ridley is no longer on the team",
+    caption = "Data: @nflscrapR"
+  ) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "white", size = 1),
+    panel.ontop = TRUE,
+    legend.position = "none"
+  )  +
+  scale_y_continuous(
+    breaks = seq(0, 6, 1)
+  )
+```
+
+### Or keep it more traditional
+
+```{r}
+rb_trio_plot +
+  geom_hline(yintercept = 0, color = "black", size = 2) +
+  theme_538() +
+  scale_fill_manual(values = c(pit_primary, pit_secondary, "grey")) +
+  labs(
+    x = "",
+    y = "Avg Yards per Play",
+    title = "Conner and Samuels were interchangeable in 2018",
+    subtitle = "Ridley is no longer on the team",
+    caption = "Data: @nflscrapR"
+  ) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    legend.position = "none"
+  ) +
+  scale_y_continuous(
+    breaks = seq(0, 6, 1)
+  )
+```
+
+### Flip the bar
+
+```{r}
+epa_play <- pbp_rp %>% 
+  filter(pass == 1) %>% 
+  group_by(posteam) %>% 
+  summarize(
+    n = n(),
+    epa_per_db = sum(epa, na.rm = TRUE) / n,
+    success_rate = sum(epa) / n
+  )
+
+epa_play %>% 
+  ggplot(aes(x = posteam, y = epa_per_db)) +
+  geom_col()
+```
+
+This could be a useful summary, but there's a few issues.  
+
+* Teams arranged by alphabetical name, which is not that useful  
+* x-axis is hard to read (worse so if you had full team names)  
+
+So let's try rotating the bar plot.
+
+```{r}
+epa_play %>%
+  ggplot(aes(x = epa_per_db, y = reorder(posteam, epa_per_db), )) +
+  geom_col()
+```
+
+
+Yikes - that is not what we want! Instead of just swapping the x and y axes, we should have used `coord_flip()` - this will actually rotate the plot rather than change the structure.
+
+```{r}
+epa_play %>%
+  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  geom_col(aes(fill = if_else(epa_per_db >= 0, "green", "red"))) +
+  coord_flip() +
+  scale_fill_identity()
+```
+
+Now this is more readable, clearly arranged by the strong passing vs weak passing teams, but still could be improved. Namely, red/green is not ideal for [color-blindness](https://www.visualisingdata.com/2015/11/colour-swatch-alternatives-to-green-and-red/), and the default red/green are pretty abrasively bright! However, we can still improve the grid lines (don't need horizontal), add some better labels, and finish out the plot.
+
+```{r}
+epa_play %>%
+  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  geom_col(aes(fill = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"))) +
+  coord_flip() +
+  scale_fill_identity() +
+  theme_538() +
+  theme(panel.grid.major.y = element_blank()) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  labs(
+    x = "",
+    y = "EPA per Dropback",
+    title = "The majority of teams had positive EPA/dropback",
+    subtitle = "But there are some clear outliers",
+    caption = "Data: @nflscrapR"
+  )
+```
+
+### Bar plot alternatives
+
+There are some alternative reproducible methods on one of my [other guides](https://gist.github.com/jthomasmock/2db9db2c534a48af9e2330758be90b8b).
+
+#### How about a lollipop?
+
+```{r}
+epa_play %>%
+  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  geom_col(aes(fill = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")),
+    width = 0.2
+  ) +
+  geom_point(aes(color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")),
+    size = 5
+  ) +
+  coord_flip() +
+  scale_fill_identity(aesthetics = c("fill", "colour")) +
+  theme_538() +
+  theme(panel.grid.major.y = element_blank()) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  labs(
+    x = "",
+    y = "EPA per Dropback",
+    title = "The majority of teams had positive EPA/dropback",
+    subtitle = "But there are some clear outliers",
+    caption = "Data: @nflscrapR"
+  )
+```
+
+#### Or a direct labeled bar
+
+```{r}
+epa_play %>%
+  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  geom_col(aes(fill = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"))) +
+  geom_text(aes(
+    label = posteam,
+    color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"),
+    hjust = if_else(epa_per_db > 0, -0.1, 1.1)
+  )) +
+  coord_flip() +
+  scale_fill_identity(aesthetics = c("fill", "colour")) +
+  theme_538() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_blank()
+  ) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  labs(
+    x = "",
+    y = "EPA per Dropback",
+    title = "The majority of teams had positive EPA/dropback",
+    subtitle = "But there are some clear outliers",
+    caption = "Data: @nflscrapR"
+  )
+```
+
+#### Or dropping the bar completely
+
+```{r}
+epa_play %>%
+  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  geom_point(aes(color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")),
+    size = 3
+  ) +
+  geom_text(aes(
+    label = posteam,
+    color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"),
+    hjust = if_else(epa_per_db > 0, -0.2, 1.2)
+  )) +
+  coord_flip() +
+  scale_fill_identity(aesthetics = c("fill", "colour")) +
+  theme_538() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_blank()
+  ) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  labs(
+    x = "",
+    y = "EPA per Dropback",
+    title = "The majority of teams had positive EPA/dropback",
+    subtitle = "But there are some clear outliers",
+    caption = "Data: @nflscrapR"
+  )
+```
+
+In this case, the Y-axis is essentially rank - you could also revert back to just doing this as team logos or adding another variable on the y-axis. This plot is ink efficient, but also has a LOT of unused white space as a result. As such, I don't think it is a "great" plot.
+
+## Scatter plots
+
+Back to stealing from Ben - who has done a great job generating interesting scatter plots. Let's do his cleanup and then some viz. Step 1 cleans up player names and is verbatim copied from his repo.
+
+```{r}
+pbp_players <- pbp_rp %>%
+  mutate(
+    passer_player_name = ifelse(play_type == "no_play" & pass == 1,
+      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((pass)|(sack)|(scramble)))"),
+      passer_player_name
+    ),
+    receiver_player_name = ifelse(play_type == "no_play" & str_detect(desc, "pass"),
+      str_extract(
+        desc,
+        "(?<=to\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?"
+      ),
+      receiver_player_name
+    ),
+    rusher_player_name = ifelse(play_type == "no_play" & rush == 1,
+      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((left end)|(left tackle)|(left guard)|		(up the middle)|(right guard)|(right tackle)|(right end)))"),
+      rusher_player_name
+    )
+  )
+```
+
+Step 2 generates our summary dataframe with a few plays of interest. ALWAYS remember to add an `ungroup()` as otherwise the grouped assignment lives on in the dataset.
+
+```{r}
+qbs <- pbp_players %>%
+  mutate(
+    name = ifelse(!is.na(passer_player_name), passer_player_name, rusher_player_name),
+    rusher = rusher_player_name,
+    receiver = receiver_player_name,
+    play = 1
+  ) %>%
+  group_by(name, posteam) %>%
+  summarize(
+    n_dropbacks = sum(pass),
+    n_rush = sum(rush),
+    n_plays = sum(play),
+    epa_per_play = sum(epa) / n_plays,
+    success_per_play = sum(success) / n_plays
+  ) %>%
+  filter(n_dropbacks >= 100) %>% 
+  ungroup() # always ungroup if you no longer need the grouping effect
+```
+
+### Basic Scatterplot
+
+```{r}
+qb_success_rate <- qbs %>%
+  ggplot(aes(x = success_per_play, y = epa_per_play)) +
+  geom_point() +
+  labs(x = "Success rate",
+       y = "EPA per play",
+       caption = "Data from nflscrapR",
+       title = "QB success rate and EPA/play",
+       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        plot.subtitle = element_text(size = 14, hjust = 0.5),
+        plot.caption = element_text(size = 12))
+
+qb_success_rate
+```
+
+This is a nice plot, minorly scaled back from Ben's example code. There is a clear linear relationship between succcess rate (EPA > 0) and EPA per Play, which makes sense. 
+
+### Add reference lines
+
+We could add back in a few of Ben's code examples to improve it.
+
+```{r}
+qb_success_rate +
+  geom_hline(yintercept = mean(qbs$epa_per_play), color = "red", linetype = "dashed") +
+  geom_vline(xintercept =  mean(qbs$success_per_play), color = "red", linetype = "dashed")
+```
+
+This adds lines at the averages for each axis to help with comparison.
+
+We could also accomplish this with the code below. In the below example, it is initially more verbose but also gives you a saved data point to work with, and could be useful if for example you wanted to do a `group_by` summary or a `filter`, basically anything beyond just a pure mean.
+
+```{r}
+qb_epa_per_play <- qbs %>% 
+  summarize(mean = mean(epa_per_play)) %>% 
+  pull(mean)
+
+qb_success_per_play <- qbs %>% 
+  summarize(mean = mean(success_per_play)) %>% 
+  pull(mean)
+
+qb_success_rate +
+  geom_hline(yintercept = qb_epa_per_play, color = "red", linetype = "dashed") +
+  geom_vline(xintercept = qb_success_per_play, color = "red", linetype = "dashed")
+```
+
+
+### Add linear trendline
+
+We could also add a linear trendline to this plot. Either method shown below is valid, but stat_smooth allows for some additional customization.
+
+```{r}
+qb_success_rate +
+  stat_smooth(method = "lm", geom='line', alpha=0.5, se = FALSE, color = "red", size = 1)
+```
+
+```{r}
+qb_success_rate +
+  geom_smooth(method = "lm", se = FALSE, color = "red")
+```
+
+### More than 2 Variables
+
+Now Ben has 2x variables assigned as aesthetics in this plot, success rate as X, EPA/play as Y. 
+
+He also added a 3rd variable (size) as an aesthetic. Importantly, because we are putting size and color INSIDE `aes()` we get to use traditional `tidyverse` evaluation, so we can reference columns directly, like you see with n_plays and posteam.
+
+```{r}
+qbs %>%
+  ggplot(aes(x = success_per_play, y = epa_per_play)) +
+  # Notice that color/size inside aes()
+  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  # we need this to assign red/black to the actual color
+  scale_color_identity() +
+  labs(x = "Success rate",
+       y = "EPA per play",
+       caption = "Data from nflscrapR",
+       title = "QB success rate and EPA/play",
+       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        plot.subtitle = element_text(size = 14, hjust = 0.5),
+        plot.caption = element_text(size = 12)) +
+  theme(legend.position = "none")
+```
+
+### Add labels
+
+We can then add nice labels to ALL the players via `ggrepel` which automatically repels labels so there is minimal to no overlap.
+
+```{r}
+qbs %>%
+  ggplot(aes(x = success_per_play, y = epa_per_play)) +
+  # Notice that color/size inside aes()
+  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  # we need this to assign red/black to the actual color
+  scale_color_identity() +
+  
+  # add labels for all players
+  geom_text_repel(aes(label=name, color = if_else(posteam == "SF", "red", "black")),
+      force=1, point.padding=0.1,
+      segment.size=0.2) +
+  labs(x = "Success rate",
+       y = "EPA per play",
+       caption = "Data from nflscrapR",
+       title = "QB success rate and EPA/play",
+       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        plot.subtitle = element_text(size = 14, hjust = 0.5),
+        plot.caption = element_text(size = 12)) +
+  theme(legend.position = "none")
+```
+
+#### Filter labels
+
+But that's a LOT of names that we aren't interested in if we want to talk about just the San Francisco QBs.
+
+```{r}
+
+qbs %>%
+  ggplot(aes(x = success_per_play, y = epa_per_play)) +
+  # Notice that color/size inside aes()
+  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  # we need this to assign red/black to the actual color
+  scale_color_identity() +
+  
+  # add labels JUST for SF
+  geom_text_repel(data = filter(qbs, posteam == "SF"),
+                  aes(label=name), color = "red",
+      force=1, point.padding=0.1,
+      segment.size=0.2) +
+  labs(x = "Success rate",
+       y = "EPA per play",
+       caption = "Data from nflscrapR",
+       title = "QB success rate and EPA/play",
+       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        plot.subtitle = element_text(size = 14, hjust = 0.5),
+        plot.caption = element_text(size = 12)) +
+  theme(legend.position = "none")
+```
+
+
+### Add annotations
+
+Staying with our San Francisco example, we can also go about this process differently to answer how did Jimmy G. and Nick the Mullet compare? We can add nice annotations via the `ggforce` package for just the two players of interest.
+
+```{r}
+qbs %>%
+  ggplot(aes(x = success_per_play, y = epa_per_play)) +
+  # Notice that color/size inside aes()
+  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  # we need this to assign red/black to the actual color
+  scale_color_identity() +
+  # add labels JUST for Mullens/Garoppolo with ggforce
+  geom_mark_hull(aes(filter = name %in% c("J.Garoppolo", "N.Mullens"), description = "Mullens + Garoppolo performed similarly in 2018"), color = "red",
+                 label.fontface = "bold", label.colour = "red", con.colour = "red") +
+  labs(x = "Success rate",
+       y = "EPA per play",
+       caption = "Data from nflscrapR",
+       title = "QB success rate and EPA/play",
+       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        plot.subtitle = element_text(size = 14, hjust = 0.5),
+        plot.caption = element_text(size = 12)) +
+  theme(legend.position = "none")
+  
+```
+
+
+
+## Distributions
+
+Rather than summarizing data into columns/points we can also display the distribution of the data points. The most common distribution plots are:
+
+* Histograms
+* Density plots
+
+You could also consider a stacked boxplot + jitter plot as showing the distribution.
+
+### Histogram
+
+The basic idea of a histogram is that the data is binned along some range (2 airyards in below example) across the x axis, and all values of x that fall within this count add to the total count for that specific bin.
+
+Let's take a look at KC and SEA, teams with very different approaches to their offenses.
+
+```{r}
+
+sea_color <- teamcolors %>% 
+  filter(name == "Seattle Seahawks") %>% 
+  pull(primary)
+
+kc_color <- teamcolors %>% 
+  filter(name == "Kansas City Chiefs") %>% 
+  pull(primary)
+
+pbp_rp %>% 
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>% 
+  group_by(posteam, play_type) %>% 
+  summarize(n = n()) %>% 
+  mutate(freq = n/sum(n))
+```
+
+So KC threw the ball almost 62% of the time, while Sea only threw the ball about 47% of the time! 
+
+But what does the distribution of throws look like between KC and SEA?
+
+```{r}
+pbp_rp %>% 
+  filter(play_type == "pass") %>% 
+  filter(posteam %in% c("SEA", "KC")) %>%
+  ggplot(aes(x = air_yards, fill = posteam)) +
+  geom_histogram(binwidth = 2)
+```
+
+The basic histogram is "fine" but let's spruce it up a bit! We can add our theme, the team colors, and some better labels.
+
+```{r}
+pbp_rp %>% 
+  filter(play_type == "pass") %>% 
+  filter(posteam %in% c("SEA", "KC")) %>%
+  ggplot(aes(x = air_yards, fill = posteam)) +
+  geom_histogram(binwidth = 2, alpha = 0.9) +
+  scale_fill_manual(values = c(kc_color, sea_color)) +
+  geom_hline(yintercept = 0, size = 1) +
+  theme_538() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.6, 0.9)) +
+  scale_x_continuous(breaks = seq(-10, 60, 10)) +
+  labs(x = "\nAir Yards",
+       y = "Count",
+       title = "KC threw more passes at all ranges",
+       caption = "Data: @nflscrapR")
+```
+
+
+### Density Plot
+
+"Computes and draws kernel density estimate, which is a smoothed version of the histogram. This is a useful alternative to the histogram for continuous data that comes from an underlying smooth distribution." - [`ggplot2` docs](https://ggplot2.tidyverse.org/reference/geom_density.html)
+
+
+```{r}
+pbp_rp %>% 
+  filter(play_type == "pass") %>% 
+  filter(posteam %in% c("SEA", "KC")) %>%
+  ggplot(aes(x = air_yards ,fill = posteam)) +
+  geom_density(alpha = 0.8) +
+  scale_fill_manual(values = c(kc_color, sea_color)) +
+  theme_538() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.6, 0.9)) +
+  scale_x_continuous(breaks = seq(-10, 60, 10))
+```
+
+An important point - I try not to focus on the Y axis for either histogram/density plots as we are looking at the distribution itself rather than specific numbers. You can scale out the y-axis in a few ways for density plots, which I'll demonstrate below.
+
+```{r}
+pbp_rp %>% 
+  filter(play_type == "pass") %>% 
+  filter(posteam %in% c("SEA", "KC")) %>%
+  ggplot(aes(x = air_yards, y = ..scaled.. ,fill = posteam)) +
+  geom_density(alpha = 0.8) +
+  scale_fill_manual(values = c(kc_color, sea_color)) +
+  theme_538() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.6, 0.9)) +
+  scale_x_continuous(breaks = seq(-10, 60, 10))
+```
+
+
+Interestingly though, we see that KC and SEA essentially attacked the field in the same way, BUT SEA threw so many fewer passes which was captured in the histogram.
+
+#### Ridge plots
+
+A nice addon to density plots is through the `ggridges` package, which allows for the creation of stacked `density` and `histogram` plots.
+
+```{r}
+pbp_rp %>% 
+  filter(play_type == "pass") %>% 
+  filter(posteam %in% c("SEA", "KC")) %>%
+  ggplot(aes(x = air_yards, y = posteam, fill = posteam)) +
+  geom_density_ridges() +
+  scale_fill_manual(values = c(kc_color, sea_color)) +
+  theme_538() +
+  theme(panel.grid.major.y = element_blank(), 
+        legend.position = "none") +
+  scale_x_continuous(breaks = seq(-10, 60, 10)) +
+  labs(x = "Air Yards",
+       y = "",
+       title = "SEA and KC pass to similar depths of the field",
+       caption = "Data: @nflscrapR")
+```
+
+
+### Boxplots
+
+Boxplots are another way of showing central tendency + range of a distribution, but they can still have their quirks or difficulties in explanations. I typically find that adding a `geom_jitter()` call on top of the boxplot helps with showing both the distribution and the central tendency/range, but YMMV.
+
+```{r}
+pbp_rp %>% 
+  filter(play_type == "pass") %>% 
+  filter(posteam %in% c("SEA", "KC")) %>%
+  ggplot(aes(x = posteam, y = air_yards ,fill = posteam)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, alpha = 0.2) +
+  scale_fill_manual(values = c(kc_color, sea_color)) +
+  theme_538() +
+  theme(legend.position = "none")
+```
+
+```{r}
+pbp_rp %>%
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>% 
+  ggplot(aes(x = play_type, y = epa , fill = play_type)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.3, alpha = 0.1) +
+  scale_fill_manual(values = c(kc_color, sea_color)) +
+  theme_538() +
+  theme(legend.position = "none") +
+  facet_grid(~posteam)
+```
+
+#### Sina plot
+
+`geom_sina()` from the `ggforce` package is an alternative to the above wokflow, and is somewhat similar to a vertical `geom_density()`
+
+```{r}
+pbp_rp %>%
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>% 
+  ggplot(aes(x = play_type, y = epa, color = posteam)) +
+  geom_sina(alpha = 0.5) +
+  scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
+  theme_538() +
+  theme(legend.position = "none") + 
+  facet_grid(~posteam)
+```
+
+## Tables
+
+You can create beautiful static and interactive tables in `R` through the `gt` and `DT` packages respectively!
+
+### `gt`
+
+The [`gt` package](https://gt.rstudio.com/) is essentially a grammar of tables, allowing you to quickly build out tables and output to RTF, HTML, or LaTeX.
+
+Let's do a quick analysis!
+
+#### Basic Table
+
+Let's go back to our `schotty` example!
+
+```{r}
+schotty
+```
+
+We can quickly convert this to a table!
+
+```{r}
+schotty %>% 
+  slice(1:5, 28:32) %>% 
+  gt()
+```
+
+And then we can make some changes!
+
+```{r}
+schotty_gt <- schotty %>% 
+  slice(1:5, 28:32) %>% 
+  arrange(desc(mean_pass)) %>% 
+  mutate(play_focus = if_else(mean_pass >=.50, "Pass Heavy", "Run Heavy")) %>% 
+  group_by(play_focus) %>% 
+  gt()
+  
+schotty_gt
+```
+
+#### Fancier Table
+
+```{r}
+schotty_gt %>% 
+  fmt_percent(columns = vars(mean_pass), decimals = 1) %>% 
+  tab_header(title = "Percentage of Passes by teams on 1st/2nd Down in 1st Half",
+             subtitle = "Win Prob between 20 & 80, excludes final 2 minutes of the half") %>% 
+  cols_label(
+    posteam = "Player",
+    mean_pass = "Pass %",
+    plays = "Plays"
+  ) %>% 
+  cols_align(
+    align = "center"
+  ) %>% 
+  tab_source_note(
+    source_note = "Table: @thomas_mock | Data: @nflscrapR"
+  )
+  
+```
+
+#### More customization
+
+For this example, we'll grab just some specific players:  
+* Primarily Slot Receivers  
+* Stud RBs  
+* Stud TEs  
+
+And compare their performance when catching the ball on 3rd down, with a few specific criteria.
+
+```{r}
+# 2018 and pass plays
+pass_2018 <- pbp_rp %>% 
+  filter(play_type == "pass", penalty == 0, sack == 0, qb_scramble == 0)
+
+third_down_passes <- pass_2018 %>% 
+  filter(down == 3, ydstogo <= 10) %>% 
+  group_by(receiver_player_name) %>% 
+  mutate(converted = if_else(yards_gained > ydstogo, 1, 0)) %>% 
+  select(receiver_player_name, yards_gained, ydstogo, epa, converted) %>% 
+  summarise(mean_epa = mean(epa, na.rm = TRUE),
+            mean_yardage = mean(yards_gained, na.rm = TRUE),
+            mean_ydstogo = mean(ydstogo, na.rm = TRUE),
+            n = n(),
+            conv_rate = sum(converted)/n) %>% 
+  ungroup() %>% 
+  arrange(desc(conv_rate))
+
+rbs <- c("A.Kamara", "J.White", "J.Conner", "C.McCaffrey", "S.Barkley", "E.Elliott",
+         "J.Mixon", "T.Gurley", "D.Johnson", "M.Gordon")
+
+wrs <- c("D.Westbrook", "A.Humphries", "C.Kupp", "G.Tate", "D.Pettis", "J.Edelman",
+         "C.Kupp", "W.Snead IV", "M.Sanu", "T.Lockett", "T.Gabriel", "S.Shepard", "C.Beasley")
+
+tes <- c("T.Kelce", "Z.Ertz", "G. Kittle", "E.Engram", "J.Cook", "E.Ebron")
+
+top_players <- c(rbs, wrs, tes)
+```
+
+Now that we have the dataframe setup, we can create a quick table.
+
+
+```{r}
+third_conv_table <- third_down_passes %>% 
+  filter(n >= 10) %>% 
+  mutate(position = case_when(
+    receiver_player_name %in% rbs ~ "RB",
+    receiver_player_name %in% wrs ~ "WR",
+    receiver_player_name %in% tes ~ "TE",
+    TRUE ~ NA_character_
+  ),
+  position = factor(position, levels = c("RB", "WR", "TE"))
+  ) %>%
+  filter(receiver_player_name %in% top_players) %>% 
+  select(receiver_player_name, conv_rate, n,  everything(), -mean_epa) %>% 
+  group_by(position) %>% 
+  arrange(desc(conv_rate)) %>% 
+  ungroup() %>% 
+  gt::gt(groupname_col = "position") 
+
+third_conv_table
+```
+
+And then really amp it up with further customizations!
+
+```{r}
+third_conv_table %>% 
+  tab_header(
+    title = "3rd Down Conversion Rates (Slot WR vs RB vs TE)",
+    subtitle = "Yds to go <= 10, N of Plays >= 10"
+  ) %>% 
+  fmt_percent(.,
+              columns = vars(conv_rate),
+              decimals = 1
+  ) %>% 
+  fmt_number(
+    columns = vars(mean_yardage, mean_ydstogo),
+    decimals = 1
+  ) %>% 
+  cols_label(
+    receiver_player_name = "Player",
+    mean_yardage = "Yds Gained",
+    mean_ydstogo = "Yds to Go",
+    n = "Plays",
+    conv_rate = "Conversion Rate"
+  ) %>% 
+  cols_align(
+    align = "center"
+  ) %>% 
+  tab_source_note(
+    source_note = "Table: @thomas_mock | Data: @nflscrapR"
+  ) %>% 
+  tab_footnote(
+    footnote = "Average Yards",
+    locations = cells_column_labels(
+      columns = vars(mean_yardage, mean_ydstogo)
+    )
+  )
+```
+
+## The end
+
+Thanks again for looking through this and hopefully this is helpful, if you have any suggestions - feel free to reference the GitHub repo and share additional examples!
+
+## License
+
+This work, "Tom's Cookbook for Better Viz", is licensed under the
+Creative Commons Attribution 4.0 International License. To view a copy of
+this license, visit https://creativecommons.org/licenses/by/4.0/ or send
+a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
