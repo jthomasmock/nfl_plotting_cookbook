@@ -27,7 +27,7 @@ library(ggrepel) # better labels
 
 # How to improve your `nflscrapR` graphics
 
-This resource is modeled after the fantastic [BBC Graphics Cookbook](https://bbc.github.io/rcookbook/), which is also worth checking out. The `nflscrapR` team ([Maksim Horowitz](https://twitter.com/bklynmaks/), [Ron Yurko](https://twitter.com/Stat_Ron/), and [Sam Ventura](https://twitter.com/stat_sam/)) have compiled easy to access play-by-play stats opening a deeper world of NFL analytics for reporters, bloggers and enthusiasts (and probably some NFL teams). [Ben Baldwin]() has compiled a [quickstart guide](https://gist.github.com/guga31bb/5634562c5a2a7b1e9961ac9b6c568701) to using this data. As such, this resource is not aimed at reproducing that tutorial, but giving you some quick guides aimated at improving the graphics you create via `ggplot2`. It's easy to get started quickly exploring the data with `ggplot2` and hopefully this helps with your "publication" quality plots.
+This resource is modeled after the fantastic [BBC Graphics Cookbook](https://bbc.github.io/rcookbook/), which is also worth checking out. The `nflscrapR` team ([Maksim Horowitz](https://twitter.com/bklynmaks/), [Ron Yurko](https://twitter.com/Stat_Ron/), and [Sam Ventura](https://twitter.com/stat_sam/)) have compiled easy to access play-by-play stats opening a deeper world of NFL analytics for reporters, bloggers and enthusiasts (and probably some NFL teams). [Ben Baldwin](https://twitter.com/benbbaldwin) has compiled a [quickstart guide](https://gist.github.com/guga31bb/5634562c5a2a7b1e9961ac9b6c568701) to using this data. As such, this resource is not aimed at reproducing that tutorial, but giving you some quick guides for improving the graphics you create via `ggplot2`. It's easy to get started quickly exploring the data with `ggplot2` and hopefully this helps with your "publication" quality plots.
 
 ## Additional Resources
 
@@ -60,16 +60,19 @@ This is useful in combination with the above example of assigning color in a plo
 
 ### `scale_color_manual()` 
 
-This allows you to specify colors of interest
+This allows you to specify colors of interest like `scale_color_manual(values = c("red", "black"))`
 
 ### `forcats::reorder()`
 
 This allows you to reorder levels of a `ggplot` by another variable.
 
+eg `reorder(posteam, epa)`
+
+### `teamcolors` package
+
+Gives you ALL the colors for NFL teams
 
 ## Prep
-
-This allows you to assign multiple evaluation steps
 
 ### Load all the libraries you need
 
