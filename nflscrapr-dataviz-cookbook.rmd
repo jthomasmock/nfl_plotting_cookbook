@@ -307,13 +307,15 @@ ggplot(schotty, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_538()
 ```
+  
+  
+Regardless - the idea here is that you can:  
 
-Regardless - the idea here is that you can:
-- A) use a built in theme (theme_bw, theme_minimal, etc), 
-- B) a pre-built theme (bbplot, ggthemes, etc)
-- C) Or build your own theme!  
+* Use a built in theme (theme_bw, theme_minimal, etc)  
+* Use a pre-built theme (bbplot, ggthemes, etc)  
+* Or build your own theme!  
 
-All are valid, but you don't necessarily have to actually manually code the theme element changes to each and every plot. You can at the least write your own theme as a function and use it. Alternatively, you can write your own package (scarier than it sounds!) and source that.
+All are valid, but you don't necessarily have to actually manually code the theme element changes to each and every plot. You can at the least write your own theme as a function and use it. Alternatively, you can write your own package (easier than it sounds!) and source that.
 
 If you would like to read more about customizing your OWN theme - check out the great resource by Simon Jackson at his [blog](https://drsimonj.svbtle.com/creating-corporate-colour-palettes-for-ggplot2).
 
@@ -825,12 +827,12 @@ This adds lines at the averages for each axis to help with comparison.
 We could also accomplish this with the code below. In the below example, it is initially more verbose but also gives you a saved data point to work with, and could be useful if for example you wanted to do a `group_by` summary or a `filter`, basically anything beyond just a pure mean.
 
 ```{r}
-qb_epa_per_play <- qbs %>% 
-  summarize(mean = mean(epa_per_play)) %>% 
+qb_epa_per_play <- qbs %>%
+  summarize(mean = mean(epa_per_play)) %>%
   pull(mean)
 
-qb_success_per_play <- qbs %>% 
-  summarize(mean = mean(success_per_play)) %>% 
+qb_success_per_play <- qbs %>%
+  summarize(mean = mean(success_per_play)) %>%
   pull(mean)
 
 qb_success_rate +
@@ -845,7 +847,7 @@ We could also add a linear trendline to this plot. Either method shown below is 
 
 ```{r}
 qb_success_rate +
-  stat_smooth(method = "lm", geom='line', alpha=0.5, se = FALSE, color = "red", size = 1)
+  stat_smooth(method = "lm", geom = "line", alpha = 0.5, se = FALSE, color = "red", size = 1)
 ```
 
 ```{r}
@@ -861,22 +863,34 @@ He also added a 3rd variable (size) as an aesthetic. Importantly, because we are
 
 ```{r}
 qbs %>%
-  ggplot(aes(x = success_per_play, y = epa_per_play)) +
+  ggplot(
+    aes(x = success_per_play, y = epa_per_play)
+  ) +
   # Notice that color/size inside aes()
-  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  geom_point(
+    aes(
+      color = if_else(posteam == "SF", "red", "black"),
+      size = n_plays / 60
+    ),
+    alpha = 0.50
+  ) +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
-  labs(x = "Success rate",
-       y = "EPA per play",
-       caption = "Data from nflscrapR",
-       title = "QB success rate and EPA/play",
-       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  labs(
+    x = "Success rate",
+    y = "EPA per play",
+    caption = "Data from nflscrapR",
+    title = "QB success rate and EPA/play",
+    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+  ) +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 10),
-        plot.title = element_text(size = 16, hjust = 0.5),
-        plot.subtitle = element_text(size = 14, hjust = 0.5),
-        plot.caption = element_text(size = 12)) +
+  theme(
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 12)
+  ) +
   theme(legend.position = "none")
 ```
 
@@ -888,25 +902,30 @@ We can then add nice labels to ALL the players via `ggrepel` which automatically
 qbs %>%
   ggplot(aes(x = success_per_play, y = epa_per_play)) +
   # Notice that color/size inside aes()
-  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays / 60), alpha = 0.50) +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
-  
+
   # add labels for all players
-  geom_text_repel(aes(label=name, color = if_else(posteam == "SF", "red", "black")),
-      force=1, point.padding=0.1,
-      segment.size=0.2) +
-  labs(x = "Success rate",
-       y = "EPA per play",
-       caption = "Data from nflscrapR",
-       title = "QB success rate and EPA/play",
-       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  geom_text_repel(aes(label = name, color = if_else(posteam == "SF", "red", "black")),
+    force = 1, point.padding = 0.1,
+    segment.size = 0.2
+  ) +
+  labs(
+    x = "Success rate",
+    y = "EPA per play",
+    caption = "Data from nflscrapR",
+    title = "QB success rate and EPA/play",
+    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+  ) +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 10),
-        plot.title = element_text(size = 16, hjust = 0.5),
-        plot.subtitle = element_text(size = 14, hjust = 0.5),
-        plot.caption = element_text(size = 12)) +
+  theme(
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 12)
+  ) +
   theme(legend.position = "none")
 ```
 
@@ -915,30 +934,35 @@ qbs %>%
 But that's a LOT of names that we aren't interested in if we want to talk about just the San Francisco QBs.
 
 ```{r}
-
 qbs %>%
   ggplot(aes(x = success_per_play, y = epa_per_play)) +
   # Notice that color/size inside aes()
-  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays / 60), alpha = 0.50) +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
-  
+
   # add labels JUST for SF
-  geom_text_repel(data = filter(qbs, posteam == "SF"),
-                  aes(label=name), color = "red",
-      force=1, point.padding=0.1,
-      segment.size=0.2) +
-  labs(x = "Success rate",
-       y = "EPA per play",
-       caption = "Data from nflscrapR",
-       title = "QB success rate and EPA/play",
-       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  geom_text_repel(
+    data = filter(qbs, posteam == "SF"),
+    aes(label = name), color = "red",
+    force = 1, point.padding = 0.1,
+    segment.size = 0.2
+  ) +
+  labs(
+    x = "Success rate",
+    y = "EPA per play",
+    caption = "Data from nflscrapR",
+    title = "QB success rate and EPA/play",
+    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+  ) +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 10),
-        plot.title = element_text(size = 16, hjust = 0.5),
-        plot.subtitle = element_text(size = 14, hjust = 0.5),
-        plot.caption = element_text(size = 12)) +
+  theme(
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 12)
+  ) +
   theme(legend.position = "none")
 ```
 
@@ -951,25 +975,38 @@ Staying with our San Francisco example, we can also go about this process differ
 qbs %>%
   ggplot(aes(x = success_per_play, y = epa_per_play)) +
   # Notice that color/size inside aes()
-  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays/60), alpha= 0.50)  +
+  geom_point(aes(
+    color = if_else(posteam == "SF", "red", "black"),
+    size = n_plays / 60
+  ),
+  alpha = 0.50
+  ) +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
   # add labels JUST for Mullens/Garoppolo with ggforce
-  geom_mark_hull(aes(filter = name %in% c("J.Garoppolo", "N.Mullens"), description = "Mullens + Garoppolo performed similarly in 2018"), color = "red",
-                 label.fontface = "bold", label.colour = "red", con.colour = "red") +
-  labs(x = "Success rate",
-       y = "EPA per play",
-       caption = "Data from nflscrapR",
-       title = "QB success rate and EPA/play",
-       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+  geom_mark_hull(
+    aes(
+      filter = name %in% c("J.Garoppolo", "N.Mullens"),
+      description = "Mullens + Garoppolo performed similarly in 2018"
+    ),
+    color = "red", label.fontface = "bold", label.colour = "red", con.colour = "red"
+  ) +
+  labs(
+    x = "Success rate",
+    y = "EPA per play",
+    caption = "Data from nflscrapR",
+    title = "QB success rate and EPA/play",
+    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+  ) +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 10),
-        plot.title = element_text(size = 16, hjust = 0.5),
-        plot.subtitle = element_text(size = 14, hjust = 0.5),
-        plot.caption = element_text(size = 12)) +
+  theme(
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 12)
+  ) +
   theme(legend.position = "none")
-  
 ```
 
 
@@ -990,20 +1027,19 @@ The basic idea of a histogram is that the data is binned along some range (2 air
 Let's take a look at KC and SEA, teams with very different approaches to their offenses.
 
 ```{r}
-
-sea_color <- teamcolors %>% 
-  filter(name == "Seattle Seahawks") %>% 
+sea_color <- teamcolors %>%
+  filter(name == "Seattle Seahawks") %>%
   pull(primary)
 
-kc_color <- teamcolors %>% 
-  filter(name == "Kansas City Chiefs") %>% 
+kc_color <- teamcolors %>%
+  filter(name == "Kansas City Chiefs") %>%
   pull(primary)
 
-pbp_rp %>% 
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>% 
-  group_by(posteam, play_type) %>% 
-  summarize(n = n()) %>% 
-  mutate(freq = n/sum(n))
+pbp_rp %>%
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
+  group_by(posteam, play_type) %>%
+  summarize(n = n()) %>%
+  mutate(freq = n / sum(n))
 ```
 
 So KC threw the ball almost 62% of the time, while Sea only threw the ball about 47% of the time! 
@@ -1011,8 +1047,8 @@ So KC threw the ball almost 62% of the time, while Sea only threw the ball about
 But what does the distribution of throws look like between KC and SEA?
 
 ```{r}
-pbp_rp %>% 
-  filter(play_type == "pass") %>% 
+pbp_rp %>%
+  filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, fill = posteam)) +
   geom_histogram(binwidth = 2)
@@ -1021,21 +1057,25 @@ pbp_rp %>%
 The basic histogram is "fine" but let's spruce it up a bit! We can add our theme, the team colors, and some better labels.
 
 ```{r}
-pbp_rp %>% 
-  filter(play_type == "pass") %>% 
+pbp_rp %>%
+  filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, fill = posteam)) +
   geom_histogram(binwidth = 2, alpha = 0.9) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   geom_hline(yintercept = 0, size = 1) +
   theme_538() +
-  theme(legend.title = element_blank(),
-        legend.position = c(0.6, 0.9)) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.6, 0.9)
+  ) +
   scale_x_continuous(breaks = seq(-10, 60, 10)) +
-  labs(x = "\nAir Yards",
-       y = "Count",
-       title = "KC threw more passes at all ranges",
-       caption = "Data: @nflscrapR")
+  labs(
+    x = "\nAir Yards",
+    y = "Count",
+    title = "KC threw more passes at all ranges",
+    caption = "Data: @nflscrapR"
+  )
 ```
 
 
@@ -1045,30 +1085,34 @@ pbp_rp %>%
 
 
 ```{r}
-pbp_rp %>% 
-  filter(play_type == "pass") %>% 
+pbp_rp %>%
+  filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
-  ggplot(aes(x = air_yards ,fill = posteam)) +
+  ggplot(aes(x = air_yards, fill = posteam)) +
   geom_density(alpha = 0.8) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   theme_538() +
-  theme(legend.title = element_blank(),
-        legend.position = c(0.6, 0.9)) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.6, 0.9)
+  ) +
   scale_x_continuous(breaks = seq(-10, 60, 10))
 ```
 
 An important point - I try not to focus on the Y axis for either histogram/density plots as we are looking at the distribution itself rather than specific numbers. You can scale out the y-axis in a few ways for density plots, which I'll demonstrate below.
 
 ```{r}
-pbp_rp %>% 
-  filter(play_type == "pass") %>% 
+pbp_rp %>%
+  filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
-  ggplot(aes(x = air_yards, y = ..scaled.. ,fill = posteam)) +
+  ggplot(aes(x = air_yards, y = ..scaled.., fill = posteam)) +
   geom_density(alpha = 0.8) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   theme_538() +
-  theme(legend.title = element_blank(),
-        legend.position = c(0.6, 0.9)) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.6, 0.9)
+  ) +
   scale_x_continuous(breaks = seq(-10, 60, 10))
 ```
 
@@ -1080,20 +1124,24 @@ Interestingly though, we see that KC and SEA essentially attacked the field in t
 A nice addon to density plots is through the `ggridges` package, which allows for the creation of stacked `density` and `histogram` plots.
 
 ```{r}
-pbp_rp %>% 
-  filter(play_type == "pass") %>% 
+pbp_rp %>%
+  filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, y = posteam, fill = posteam)) +
   geom_density_ridges() +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   theme_538() +
-  theme(panel.grid.major.y = element_blank(), 
-        legend.position = "none") +
+  theme(
+    panel.grid.major.y = element_blank(),
+    legend.position = "none"
+  ) +
   scale_x_continuous(breaks = seq(-10, 60, 10)) +
-  labs(x = "Air Yards",
-       y = "",
-       title = "SEA and KC pass to similar depths of the field",
-       caption = "Data: @nflscrapR")
+  labs(
+    x = "Air Yards",
+    y = "",
+    title = "SEA and KC pass to similar depths of the field",
+    caption = "Data: @nflscrapR"
+  )
 ```
 
 
@@ -1102,10 +1150,10 @@ pbp_rp %>%
 Boxplots are another way of showing central tendency + range of a distribution, but they can still have their quirks or difficulties in explanations. I typically find that adding a `geom_jitter()` call on top of the boxplot helps with showing both the distribution and the central tendency/range, but YMMV.
 
 ```{r}
-pbp_rp %>% 
-  filter(play_type == "pass") %>% 
+pbp_rp %>%
+  filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
-  ggplot(aes(x = posteam, y = air_yards ,fill = posteam)) +
+  ggplot(aes(x = posteam, y = air_yards, fill = posteam)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, alpha = 0.2) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
@@ -1131,12 +1179,12 @@ pbp_rp %>%
 
 ```{r}
 pbp_rp %>%
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>% 
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = play_type, y = epa, color = posteam)) +
   geom_sina(alpha = 0.5) +
   scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
   theme_538() +
-  theme(legend.position = "none") + 
+  theme(legend.position = "none") +
   facet_grid(~posteam)
 ```
 
@@ -1161,43 +1209,44 @@ schotty
 We can quickly convert this to a table!
 
 ```{r}
-schotty %>% 
-  slice(1:5, 28:32) %>% 
+schotty %>%
+  slice(1:5, 28:32) %>%
   gt()
 ```
 
 And then we can make some changes!
 
 ```{r}
-schotty_gt <- schotty %>% 
-  slice(1:5, 28:32) %>% 
-  arrange(desc(mean_pass)) %>% 
-  mutate(play_focus = if_else(mean_pass >=.50, "Pass Heavy", "Run Heavy")) %>% 
-  group_by(play_focus) %>% 
+schotty_gt <- schotty %>%
+  slice(1:5, 28:32) %>%
+  arrange(desc(mean_pass)) %>%
+  mutate(play_focus = if_else(mean_pass >= .50, "Pass Heavy", "Run Heavy")) %>%
+  group_by(play_focus) %>%
   gt()
-  
+
 schotty_gt
 ```
 
 #### Fancier Table
 
 ```{r}
-schotty_gt %>% 
-  fmt_percent(columns = vars(mean_pass), decimals = 1) %>% 
-  tab_header(title = "Percentage of Passes by teams on 1st/2nd Down in 1st Half",
-             subtitle = "Win Prob between 20 & 80, excludes final 2 minutes of the half") %>% 
+schotty_gt %>%
+  fmt_percent(columns = vars(mean_pass), decimals = 1) %>%
+  tab_header(
+    title = "Percentage of Passes by teams on 1st/2nd Down in 1st Half",
+    subtitle = "Win Prob between 20 & 80, excludes final 2 minutes of the half"
+  ) %>%
   cols_label(
     posteam = "Player",
     mean_pass = "Pass %",
     plays = "Plays"
-  ) %>% 
+  ) %>%
   cols_align(
     align = "center"
-  ) %>% 
+  ) %>%
   tab_source_note(
     source_note = "Table: @thomas_mock | Data: @nflscrapR"
   )
-  
 ```
 
 #### More customization
@@ -1211,27 +1260,33 @@ And compare their performance when catching the ball on 3rd down, with a few spe
 
 ```{r}
 # 2018 and pass plays
-pass_2018 <- pbp_rp %>% 
+pass_2018 <- pbp_rp %>%
   filter(play_type == "pass", penalty == 0, sack == 0, qb_scramble == 0)
 
-third_down_passes <- pass_2018 %>% 
-  filter(down == 3, ydstogo <= 10) %>% 
-  group_by(receiver_player_name) %>% 
-  mutate(converted = if_else(yards_gained > ydstogo, 1, 0)) %>% 
-  select(receiver_player_name, yards_gained, ydstogo, epa, converted) %>% 
-  summarise(mean_epa = mean(epa, na.rm = TRUE),
-            mean_yardage = mean(yards_gained, na.rm = TRUE),
-            mean_ydstogo = mean(ydstogo, na.rm = TRUE),
-            n = n(),
-            conv_rate = sum(converted)/n) %>% 
-  ungroup() %>% 
+third_down_passes <- pass_2018 %>%
+  filter(down == 3, ydstogo <= 10) %>%
+  group_by(receiver_player_name) %>%
+  mutate(converted = if_else(yards_gained > ydstogo, 1, 0)) %>%
+  select(receiver_player_name, yards_gained, ydstogo, epa, converted) %>%
+  summarise(
+    mean_epa = mean(epa, na.rm = TRUE),
+    mean_yardage = mean(yards_gained, na.rm = TRUE),
+    mean_ydstogo = mean(ydstogo, na.rm = TRUE),
+    n = n(),
+    conv_rate = sum(converted) / n
+  ) %>%
+  ungroup() %>%
   arrange(desc(conv_rate))
 
-rbs <- c("A.Kamara", "J.White", "J.Conner", "C.McCaffrey", "S.Barkley", "E.Elliott",
-         "J.Mixon", "T.Gurley", "D.Johnson", "M.Gordon")
+rbs <- c(
+  "A.Kamara", "J.White", "J.Conner", "C.McCaffrey", "S.Barkley", "E.Elliott",
+  "J.Mixon", "T.Gurley", "D.Johnson", "M.Gordon"
+)
 
-wrs <- c("D.Westbrook", "A.Humphries", "C.Kupp", "G.Tate", "D.Pettis", "J.Edelman",
-         "C.Kupp", "W.Snead IV", "M.Sanu", "T.Lockett", "T.Gabriel", "S.Shepard", "C.Beasley")
+wrs <- c(
+  "D.Westbrook", "A.Humphries", "C.Kupp", "G.Tate", "D.Pettis", "J.Edelman",
+  "C.Kupp", "W.Snead IV", "M.Sanu", "T.Lockett", "T.Gabriel", "S.Shepard", "C.Beasley"
+)
 
 tes <- c("T.Kelce", "Z.Ertz", "G. Kittle", "E.Engram", "J.Cook", "E.Ebron")
 
