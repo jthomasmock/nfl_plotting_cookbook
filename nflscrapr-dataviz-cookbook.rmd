@@ -23,6 +23,8 @@ library(teamcolors) # NFL team colors and logos
 library(ggforce) # better annotations
 library(ggridges) # many distributions at once
 library(ggrepel) # better labels
+library(ggbeeswarm)
+library(waffle)
 ```
 
 # How to improve your `nflscrapR` graphics
@@ -89,6 +91,8 @@ library(teamcolors) # NFL team colors and logos
 library(ggforce) # better annotations
 library(ggridges) # many distributions at once
 library(ggrepel) # better labels
+library(ggbeeswarm) # beeswarm plots
+library(waffle) # waffle plots
 ```
 
 ### Read in the pbp data
@@ -441,7 +445,7 @@ wr_duel_plot +
 
 ### More than a linear time series
 
-You could also try out a connected line plot.
+You could also try out a connected line plot which lets you plot an x and y axis, then assign "time" as a 3rd variable. I find that it helps to add a connecting line, or else you may have trouble following the linear change in time.
 
 ```{r}
 # Prepare data
@@ -460,9 +464,9 @@ juju_do_it <- pbp_rp %>%
   )
 
 ggplot(juju_do_it, aes(x = total_airyards, y = total_yards, color = game_num)) +
-  geom_point(size = 3) +
+  geom_point(size = 5) +
   # geom path follows the order of underlying data
-  geom_path(size = 1) +
+  geom_path(size = 2) +
   # creates a line for comparison
   geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed") +
   # adds labels to only game 1 and 5
@@ -495,6 +499,13 @@ This basic call can be applied to lots of different plots to give a reference li
 ## Bar Charts
 
 Everyone's favorite - bar charts! But always remember that bar charts can limit information - we'll look at distribution plots of various types later, but for now back to the bar.
+
+Basic forms:  
+
+* `ggplot(aes(x = category, y = value)) + geom_col()`
+* `ggplot(aes(x = category, y = value)) + geom_bar(stat = "identity")`
+
+Column defaults to identity, essentially the single number is read as the max value. `geom_bar()` on the other hand has a bit more flexibility if you want to build stacked or segmented bar charts.
 
 ```{r}
 rb_trio <- pbp_rp %>%
@@ -537,7 +548,7 @@ rb_trio_plot <- rb_trio %>%
 rb_trio_plot
 ```
 
-Now we are adding color by player and separating into small multiples or facets that represent the play type.
+Now we are adding color by player and separating into small multiples or facets that represent the play type. Any categorical variable could be used in this fashion - you could essentially build the plot 1x and then facet by a factor to generate N versions of that graph all plotted together.
 
 
 ### Let's raise the bar
@@ -652,9 +663,13 @@ epa_play %>%
 
 ### Bar plot alternatives
 
-There are some alternative reproducible methods on one of my [other guides](https://gist.github.com/jthomasmock/2db9db2c534a48af9e2330758be90b8b).
+There are some alternative reproducible methods for various bar plots on one of my [other guides](https://gist.github.com/jthomasmock/2db9db2c534a48af9e2330758be90b8b).
 
 #### How about a lollipop?
+
+Basic form:  
+
+* `ggplot(aes(x = category, y = value)) + geom_col(width = 0.2) + geom_point()`
 
 ```{r}
 epa_play %>%
@@ -790,6 +805,10 @@ qbs <- pbp_players %>%
 ```
 
 ### Basic Scatterplot
+
+Basic form:  
+
+* `ggplot(aes(x = value, y = other_value)) + geom_point()`
 
 ```{r}
 qb_success_rate <- qbs %>%
@@ -1024,6 +1043,11 @@ You could also consider a stacked boxplot + jitter plot as showing the distribut
 
 The basic idea of a histogram is that the data is binned along some range (2 airyards in below example) across the x axis, and all values of x that fall within this count add to the total count for that specific bin.
 
+Basic form:  
+
+* `ggplot(aes(x = value)) + geom_histogram()`  
+  * Notice NO y-value as it is generated automatically via the plot
+
 Let's take a look at KC and SEA, teams with very different approaches to their offenses.
 
 ```{r}
@@ -1083,6 +1107,11 @@ pbp_rp %>%
 
 "Computes and draws kernel density estimate, which is a smoothed version of the histogram. This is a useful alternative to the histogram for continuous data that comes from an underlying smooth distribution." - [`ggplot2` docs](https://ggplot2.tidyverse.org/reference/geom_density.html)
 
+Basic form:  
+
+* `ggplot(aes(x = value)) + geom_density()`  
+  * Again notice NO y-value, it is generated automatically
+
 
 ```{r}
 pbp_rp %>%
@@ -1123,6 +1152,11 @@ Interestingly though, we see that KC and SEA essentially attacked the field in t
 
 A nice addon to density plots is through the `ggridges` package, which allows for the creation of stacked `density` and `histogram` plots.
 
+Basic form:  
+
+* `ggplot(aes(x = value, y = category)) + geom_density_ridges()`  
+  * Notice now we assign a group/category to Y axis
+
 ```{r}
 pbp_rp %>%
   filter(play_type == "pass") %>%
@@ -1149,6 +1183,10 @@ pbp_rp %>%
 
 Boxplots are another way of showing central tendency + range of a distribution, but they can still have their quirks or difficulties in explanations. I typically find that adding a `geom_jitter()` call on top of the boxplot helps with showing both the distribution and the central tendency/range, but YMMV.
 
+Basic form:  
+
+* `ggplot(aes(x = category, y = value)) + geom_boxplot()`
+
 ```{r}
 pbp_rp %>%
   filter(play_type == "pass") %>%
@@ -1173,9 +1211,13 @@ pbp_rp %>%
   facet_grid(~posteam)
 ```
 
-#### Sina plot
+### Sina plot
 
 `geom_sina()` from the `ggforce` package is an alternative to the above wokflow, and is somewhat similar to a vertical `geom_density()`
+
+Basic form:  
+
+* `ggplot(aes(x = category, y = value)) + geom_sina()`
 
 ```{r}
 pbp_rp %>%
@@ -1187,6 +1229,308 @@ pbp_rp %>%
   theme(legend.position = "none") +
   facet_grid(~posteam)
 ```
+
+### Beeswarm
+
+`geom_beeswarm()` from the `beeswarm` package is an alternative to the above wokflow, but is almost identical to `geom_sina()` in its basic form.
+
+Basic form:  
+
+* `ggplot(aes(x = category, y = value)) + geom_beeswarm()`  
+
+
+```{r, eval = FALSE}
+library(ggbeeswarm)
+```
+
+```{r}
+pbp_rp %>%
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
+  ggplot(
+    aes(x = play_type, y = epa, color = posteam)
+  ) +
+  geom_beeswarm(alpha = 0.5) +
+  scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
+  theme_538() +
+  theme(legend.position = "none") +
+  facet_grid(~posteam)
+```
+
+Importantly, although this looks very similar to the `geom_sina()` plots, you have more options about customizing the "swarming".
+
+```{r}
+pbp_rp %>%
+  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
+  ggplot(
+    aes(x = play_type, y = epa, color = posteam)
+  ) +
+  geom_beeswarm(priority = "random", alpha = 0.5, size = 0.5) +
+  scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
+  theme_538() +
+  theme(legend.position = "none") +
+  facet_grid(~posteam)
+```
+
+## Miscellaneous Plots
+
+### Dumbbell Plots
+
+Dumbell plots are typically best served comparing two summary numbers within a group.
+
+Basic form:  
+
+* `ggplot(aes(x = value, y = category, group = group)) + geom_line() + geom_point() + coord_flip()`
+
+```{r}
+rush_v_pass <- pbp_rp %>% 
+  filter(play_type != "no_play", penalty == 0) %>% 
+  group_by(play_type, posteam) %>% 
+  summarize(avg_yds = mean(yards_gained, na.rm = TRUE)) %>% 
+  ungroup()
+
+nfl_rvp <- pbp_rp %>% 
+  filter(play_type != "no_play") %>% 
+  group_by(play_type) %>% 
+  summarize(avg_yds = mean(yards_gained, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(posteam = "NFL")
+
+rush_v_pass <- bind_rows(rush_v_pass, nfl_rvp) %>% 
+  mutate(play_type = factor(play_type,
+                            levels = c("pass", "run"),
+                            labels = c("Pass", "Rush")))
+
+rush_v_pass %>% 
+  ggplot(aes(x = fct_rev(fct_reorder2(posteam, desc(play_type), avg_yds)), y = avg_yds, color = play_type)) +
+  geom_line(aes(group = posteam), color = "grey", size = 3) +
+  geom_point(size = 5) +
+  coord_flip()
+
+```
+
+Adding some additional aesthetic changes to improve the graph:  
+
+* Color of the points  
+* Titles/Axes/Captions  
+* Direct label legend  
+
+```{r}
+rush_v_pass %>%
+  ggplot(aes(x = fct_rev(fct_reorder2(posteam, desc(play_type), avg_yds)), y = avg_yds, color = play_type)) +
+  geom_line(aes(group = posteam), color = "grey", size = 3) +
+  geom_point(size = 5) +
+  geom_text(
+    data = filter(rush_v_pass, posteam == "KC" & play_type == "Pass"),
+    aes(label = play_type),
+    hjust = 0, nudge_y = 0.2, fontface = "bold", size = 6
+  ) +
+  geom_text(
+    data = filter(rush_v_pass, posteam == "KC" & play_type == "Rush"),
+    aes(label = play_type),
+    hjust = 1, nudge_y = -0.2, fontface = "bold", size = 6
+  ) +
+  coord_flip() +
+  scale_color_manual(values = c("#003399", "#ff2b4f")) +
+  theme_538() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    legend.position = "none",
+    axis.text.y = element_text(color = if_else(rush_v_pass$posteam == "NFL", "red", "black"))
+  ) +
+  labs(
+    x = "",
+    y = "\n Average Yards Gained",
+    title = "Passing yards per play outperforms Rushing for all teams",
+    caption = "Data: @nflscrapR"
+  ) +
+  scale_y_continuous(
+    limits = c(3, 9),
+    breaks = seq(3, 8, 1)
+  )
+```
+
+### Slope Chart
+
+A [slope chart](https://datavizproject.com/data-type/slope-chart/) allows you to show the change/trend between two points, most appropriately as a two point time series.
+
+The basic form:
+
+* `ggplot(aes(x = time, y = value, group = group)) + geom_line() + geom_point()`
+
+This demo takes a bit of prep, you could skip this simply by using `game_date` instead of `game_week`, but I think it's a useful code-chunk for you to have in the boolbox.
+
+* `case_when()` is essentially a switch or a combination of `if_else()` statements.  
+
+We can use it to have a bunch of arguments where you can match some argument and then output something specific. Here we are checking if the `game_date` is between the two dates for that week's games and then assigning `game_week` of the season.
+
+```{r, eval = F, echo = F}
+get_game_wk <- function(game_date, start_date, end_date){
+  between({{game_date}}, as.Date(start_date), as.Date(end_date))
+}
+
+game_num <- pbp_rp %>% 
+  mutate(game_week = case_when(
+    get_game_wk(game_date, "2018-09-05", "2018-09-11") ~ 1,
+    get_game_wk(game_date, "2018-09-12", "2018-09-18") ~ 2,
+    get_game_wk(game_date, "2018-09-19", "2018-09-25") ~ 3,
+    get_game_wk(game_date, "2018-09-26", "2018-10-02") ~ 4,
+    get_game_wk(game_date, "2018-10-03", "2018-10-09") ~ 5,
+    get_game_wk(game_date, "2018-10-10", "2018-10-16") ~ 6,
+    get_game_wk(game_date, "2018-10-17", "2018-10-23") ~ 7,
+    get_game_wk(game_date, "2018-10-24", "2018-10-30") ~ 8,
+    get_game_wk(game_date, "2018-10-31", "2018-11-06") ~ 9,
+    get_game_wk(game_date, "2018-11-07", "2018-11-13") ~ 10,
+    get_game_wk(game_date, "2018-11-14", "2018-11-20") ~ 11,
+    get_game_wk(game_date, "2018-11-21", "2018-11-27") ~ 12,
+    get_game_wk(game_date, "2018-11-28", "2018-12-04") ~ 13,
+    get_game_wk(game_date, "2018-12-05", "2018-12-11") ~ 14,
+    get_game_wk(game_date, "2018-12-12", "2018-12-18") ~ 15,
+    get_game_wk(game_date, "2018-12-19", "2018-12-25") ~ 16,
+    get_game_wk(game_date, "2018-12-30", "2019-01-01") ~ 17,
+    TRUE ~ 99
+    )
+  ) %>% 
+  filter(game_week != 99)
+```
+
+```{r}
+game_num <- pbp_rp %>% 
+  mutate(game_week = case_when(
+    between(game_date, as.Date("2018-09-05"), as.Date("2018-09-11")) ~ 1,
+    between(game_date, as.Date("2018-09-12"), as.Date("2018-09-18")) ~ 2,
+    between(game_date, as.Date("2018-09-19"), as.Date("2018-09-25")) ~ 3,
+    between(game_date, as.Date("2018-09-26"), as.Date("2018-10-02")) ~ 4,
+    between(game_date, as.Date("2018-10-03"), as.Date("2018-10-09")) ~ 5,
+    between(game_date, as.Date("2018-10-10"), as.Date("2018-10-16")) ~ 6,
+    between(game_date, as.Date("2018-10-17"), as.Date("2018-10-23")) ~ 7,
+    between(game_date, as.Date("2018-10-24"), as.Date("2018-10-30")) ~ 8,
+    between(game_date, as.Date("2018-10-31"), as.Date("2018-11-06")) ~ 9,
+    between(game_date, as.Date("2018-11-07"), as.Date("2018-11-13")) ~ 10,
+    between(game_date, as.Date("2018-11-14"), as.Date("2018-11-20")) ~ 11,
+    between(game_date, as.Date("2018-11-21"), as.Date("2018-11-27")) ~ 12,
+    between(game_date, as.Date("2018-11-28"), as.Date("2018-12-04")) ~ 13,
+    between(game_date, as.Date("2018-12-05"), as.Date("2018-12-11")) ~ 14,
+    between(game_date, as.Date("2018-12-12"), as.Date("2018-12-18")) ~ 15,
+    between(game_date, as.Date("2018-12-19"), as.Date("2018-12-25")) ~ 16,
+    between(game_date, as.Date("2018-12-30"), as.Date("2019-01-01")) ~ 17,
+    TRUE ~ 99
+    )
+  ) %>% 
+  filter(game_week != 99)
+
+```
+
+Now we can clean up some of the factors for better printing and limit to KC, the most offensively efficient team in 2018. We'll be looking at 1st Half vs 2nd Half Runs & Passes.
+
+```{r}
+wk_rvp <- game_num %>%
+  filter(play_type != "no_play", game_half %in% c("Half1", "Half2")) %>%
+  mutate(game_half = if_else(game_half == "Half1", "1st Half", "2nd Half")) %>%
+  group_by(posteam, game_half, game_week, play_type) %>%
+  count() %>% 
+  ungroup()
+
+kc_rvp <- wk_rvp %>% 
+  filter(posteam == "KC") %>% 
+  mutate(game_num = if_else(game_week <=11, game_week, game_week - 1),
+         play_type = if_else(play_type == "run", "Rush", "Pass"),
+         game_text = glue::glue("Game {game_num}")
+         )
+
+kc_rvp
+```
+
+Notice that we have nice text for `game_half` and `play_type` and a `game_num` variable. Let's build the basic slope chart. You need SOME type of grouping variable as your 3rd variable eg (var1 = x, var2 = y, var3 = group).
+
+```{r}
+kc_rvp %>% 
+  ggplot(aes(x = game_half, y = n, group = game_num)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(~play_type)
+```
+
+This is interesting and shows the key feature of how does the trend of 1st Half vs 2nd Half Rush vs Pass look like.
+
+However, we aren't sure which games match to fewer first-half rushes vs more second-half rushes We need to assign a color variable in our `aes()` call. But first, let's figure out the games where KC rushed more in the 1st half (aka ESTABLISH THE RUN) vs the 2nd half (REAP THE REWARDS OF ESTABLISHMENT).
+
+```{r}
+kc_runs <- kc_rvp %>% 
+  filter(play_type == "Rush") %>% 
+  spread(game_half, n) %>%
+  mutate(balance = if_else(`1st Half` >= `2nd Half`, "Ran More in 1st", "Ran More in 2nd")) %>% 
+  gather(key = "game_half", value = "n", `1st Half`:`2nd Half`) %>% 
+  select(posteam, game_num,game_half, balance)
+
+kc_runs 
+```
+
+```{r}
+kc_runs %>% 
+  filter(balance == "Ran More in 1st") %>% 
+  distinct(game_num)
+```
+
+So games 3, 4, 11 and 15 were the only games were they ran more or equal amounts in the 1st Half than the 2nd Half. Fun fact - KC went 12-4 last season, and went 2-2 in the games where they ran equally or more in the 1st Half than the 2nd Half.
+
+```{r}
+kc_rvp %>%
+  ggplot(
+    aes(
+      x = game_half, y = n, group = game_week, 
+      color = if_else(game_num %in% c(3, 4, 11, 15), "red", "blue")
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  geom_text_repel(
+    data = filter(
+      kc_rvp, game_num %in% c(3, 4, 11, 15),
+      game_half == "2nd Half"
+    ),
+    aes(label = game_num)
+  ) +
+  facet_grid(~play_type) +
+  scale_color_identity()
+```
+
+Ok now we can see that in 3/4 of the ONLY games where they "established" the run in the 1st half they ended up passing dramatically more in the 2nd half (4, 11, 15). Let's add some more context and details.
+
+```{r, fig.width= 10, fight.height =16, dpi = 450}
+kc_rvp %>%
+  ggplot(
+    aes(
+      x = game_half, y = n, group = game_week, 
+      color = if_else(game_num %in% c(3, 4, 11, 15), "#ff2b4f", "#003399")
+    )
+  ) +
+  geom_point() +
+  geom_vline(xintercept = c(1, 2), size = 2, color = "black", alpha = 0.5) +
+  geom_line(size = 2) +
+  geom_point(size = 5) +
+  geom_text_repel(
+    data = filter(
+      kc_rvp, game_num %in% c(3, 4, 11, 15),
+      game_half == "2nd Half"
+    ),
+    aes(label = game_text),
+    direction = "y", nudge_x = 0.1, segment.size = 0.1, hjust = 0,
+    size = 5, fontface = "bold"
+  ) +
+  facet_grid(~play_type) +
+  scale_color_identity() +
+  theme_538() +
+  theme(panel.grid.major.x = element_blank()) +
+  labs(x = "", y = "N of Plays\n",
+       title = "In 3 of 4 games where KC established the run they ended up throwing more in the 2nd half",
+       subtitle = "They went 2-2 in these games, and 10-2 in their other games",
+       caption = "Data: @nflscrapR")
+
+```
+
+The big players here are manually changing colors and adding filtered data to add text labels for only the points of interest.
+
+That's all for this section - on to Tables!
 
 ## Tables
 
