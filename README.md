@@ -1,2 +1,5 @@
-# nfl_plotting_cookbook
-How to improve your nflscrapR graphics
+# Tom’s Cookbook for Better Viz
+
+Or how I learned to stop worrying and love {improving your nflscrapR graphics}
+
+![](pit_rbs.png)

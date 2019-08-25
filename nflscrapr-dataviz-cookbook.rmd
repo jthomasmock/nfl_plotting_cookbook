@@ -25,11 +25,17 @@ library(ggridges) # many distributions at once
 library(ggrepel) # better labels
 library(ggbeeswarm)
 library(waffle)
+
+pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
 ```
 
 # How to improve your `nflscrapR` graphics
 
 This resource is modeled after the fantastic [BBC Graphics Cookbook](https://bbc.github.io/rcookbook/), which is also worth checking out. The `nflscrapR` team ([Maksim Horowitz](https://twitter.com/bklynmaks/), [Ron Yurko](https://twitter.com/Stat_Ron/), and [Sam Ventura](https://twitter.com/stat_sam/)) have compiled easy to access play-by-play stats opening a deeper world of NFL analytics for reporters, bloggers and enthusiasts (and probably some NFL teams). [Ben Baldwin](https://twitter.com/benbbaldwin) has compiled a [quickstart guide](https://gist.github.com/guga31bb/5634562c5a2a7b1e9961ac9b6c568701) to using this data. As such, this resource is not aimed at reproducing that tutorial, but giving you some quick guides for improving the graphics you create via `ggplot2`. It's easy to get started quickly exploring the data with `ggplot2` and hopefully this helps with your "publication" quality plots.
+
+I am providing a lot of my own **opinion** on certain dataviz choices - everyone is allowed to make their own decisions with regards to colors, ink use, chart type - but I do hope that this resource opens your eyes to some of the art of dataviz now that you have made progress with the science.
+
+The source code for this webpage is on [Github](https://github.com/jthomasmock/nfl_plotting_cookbook) if you want to take a look.
 
 ## Additional Resources
 
@@ -37,12 +43,13 @@ If you'd rather go deeper into a textbook and ignore specific applications relat
 
 | Title/Link | Author | Description |
 | :--- | :--- |:---------------|
-| [SocViz](https://socviz.co/lookatdata.html#lookatdata) | Kieran Hiely | Covers exactly how to create a lot of different plot types in `R`/`ggplot2` |
+| [R for Data Science](https://r4ds.had.co.nz/) | Hadley Wickham, Garret Grolemund | A great overview of the `tidyverse`, covers everything from reading data in, data manipulation/summarization, data viz, and general programming in R |
+| [SocViz](https://socviz.co/lookatdata.html#lookatdata) | Kieran Hiely | Covers exactly HOW to create a lot of different plot types in `R`/`ggplot2` |
 | [Fundamentals of Data Viz](https://serialmentor.com/dataviz/) | Claus Wilke | Covers the WHY of Data Viz where all examples are in R, but no code examples in the book, but are available on his [GitHub](https://github.com/clauswilke/dataviz) |
 | [BBPlot Cookbook](https://bbc.github.io/rcookbook/) | BBC Data Team | Intro primer to news-style graphics in `ggplot2` |
 | [`ggplot2` cookbook](http://www.cookbook-r.com/Graphs/) |  Winston Chang | Quick cookbook of `ggplot2` plots |
 | [R Graph Gallery](https://www.r-graph-gallery.com/) | Yan Holtz | Cookbook examples of a majority of plot types. |
-
+| [`ggplot2` Book ](https://ggplot2-book.org/) | Hadley Wickham, Danielle Navarro | This 3rd edition of the `ggplot2` book is currently under development, but also available freely online for the first time! A more technical book that should align well with either SocViz or Fundamentals of Data Viz |
 
 ## Useful code chunks
 
@@ -53,8 +60,37 @@ There are a couple features that we will use throughout these examples:
 This allows you to make a binary conversion.
 
 For example `if_else(condition, true, false)`  
-* `success = if_else(epa > 0, 1, 0)`  
-* `color = if_else(posteam == "PIT", "yellow", "grey)`  
+
+* `mutate(success = if_else(epa > 0, 1, 0))`  
+* `mutate(color = if_else(posteam == "PIT", "yellow", "grey))`  
+
+### `dplyr::case_when()`
+
+This allows you to essentially use many `if_else` statements at once
+
+* The `~` indicates an assignment, where if the left side statement is evaluated as TRUE then the outcome is `~` (assigned) to the right side.  
+  * The right side can be a number, text, etc  
+  * The left side can be a simple or complex statement, but must evaluate as TRUE/FALSE (logical)  
+* The final `TRUE ~ NA_character_` is basically a "catch" - if none of the other cases are met, then it will default to NA  
+  * In this case we use `NA_character_` from `dplyr`, but you could also have a situation where it could simply say "nope" or revert back to some other column  
+  * If you want to have the right side (assignment) be a number, you'll need to use `NA_integer_`  
+* Lastly, a longer `case_when()` is presented shortly below
+
+
+```{r}
+pbp %>% 
+  mutate(
+    stick_throw = case_when(
+      air_yards < ydstogo ~ "Short of Sticks",
+      air_yards == ydstogo ~ "At Stick",
+      air_yards > ydstogo ~ "Past Stick",
+      TRUE ~ NA_character_
+      )
+  ) %>% 
+  select(air_yards, ydstogo, stick_throw) %>% 
+  filter(!is.na(air_yards))
+```
+
 
 ### `scale_color_identity()`
 
@@ -70,9 +106,105 @@ This allows you to reorder levels of a `ggplot` by another variable.
 
 eg `reorder(posteam, epa)`
 
+### `Helpers`
+
+There are a few helpers used frequently throughout.
+
+* `!` indicates not or negation, so `x != 5` means x not equal to 5.  
+  * `!is.na(x)` indicates x is NOT NA  
+* `%in%` means in - so `x %in% c(2, 3, 4)` means x matches 2, 3 OR 4  
+* `dplyr::between(x, left, right)` - shortcut for `x >= left & x <= right`  
+* `hjust`/`vjust` - this is typically assigned 0 through 1, and adjusts either the horizontal or vertical alignment
+
+### `ggplot2` specs
+
+The [documentation for `ggplot2`](https://ggplot2.tidyverse.org/articles/ggplot2-specs.html) cover in great detail MANY options for minor but important customizations. I'm not adding it directly here but adding as a resource. It is definitely worth parsing through, and some examples below:
+
+* lines (size, color, type, join, end)  
+* points (size, color, fill, stroke)  
+* text (size, face)  
+* justification (hjust, vjust, nudge_x, nudge_y)  
+  
+
 ### `teamcolors` package
 
 Gives you ALL the colors for NFL teams
+
+#### Using `teamcolors`
+
+```{r}
+filter(teamcolors, league == "nfl")
+```
+
+Please note that teams are listed by full name so to use them with the play-by-play data you will need to "join" the `teamcolors` and play-by-play datasets together.
+
+The list of short teams named could be accomplished like so:
+
+```{r}
+nfl_colors <- teamcolors %>% 
+  filter(league == "nfl") %>% 
+  mutate(
+    team_abb = case_when(
+    name == "Arizona Cardinals" ~ "ARI",
+    name == "Atlanta Falcons" ~ "ATL",
+    name == "Baltimore Ravens" ~ "BAL",
+    name == "Buffalo Bills" ~ "BUF",
+    name == "Carolina Panthers" ~ "CAR",
+    name == "Chicago Bears" ~ "CHI",
+    name == "Cincinnati Bengals" ~ "CIN",
+    name == "Cleveland Browns" ~ "CLE",
+    name == "Dallas Cowboys" ~ "DAL",
+    name == "Denver Broncos" ~ "DEN",
+    name == "Detroit Lions" ~ "DET",
+    name == "Green Bay Packers" ~ "GB",
+    name == "Houston Texans" ~ "HOU",
+    name == "Indianapolis Colts" ~ "IND",
+    name == "Jacksonville Jaguars" ~ "JAX",
+    name == "Kansas City Chiefs" ~ "KC",
+    name == "Los Angeles Rams" ~ "LA",
+    name == "Los Angeles Chargers" ~ "LAC",
+    name == "Miami Dolphins" ~ "MIA",
+    name == "Minnesota Vikings" ~ "MIN",
+    name == "New England Patriots" ~ "NE",
+    name == "New Orleans Saints" ~ "NO",
+    name == "New York Giants" ~ "NYG",
+    name == "New York Jets" ~ "NYJ",
+    name == "Oakland Raiders" ~ "OAK",
+    name == "Philadelphia Eagles" ~ "PHI",
+    name == "Pittsburgh Steelers" ~ "PIT",
+    name == "Seattle Seahawks" ~ "SEA",
+    name == "San Francisco 49ers" ~ "SF",
+    name == "Tampa Bay Buccaneers" ~ "TB",
+    name == "Tennessee Titans" ~ "TEN",
+    name == "Washington Redskins" ~ "WAS",
+    TRUE ~ NA_character_
+    ),
+    posteam = team_abb
+  )
+```
+
+You could then use `dplyr::left_join()` to join the full names, colors, and team logos to the play-by-play data. Without getting into the weeds TOO much, a `left_join` basically finds cases where there is a matching row in the common column (posteam) for both dataframes, and then adds the additional columns from nfl_colors to the play-by-play data. Joins are a very important concept when trying to combine multiple datasets, and if you want to read more about the various types and their use cases check out the [`dplyr` joins docs](https://dplyr.tidyverse.org/reference/join.html).
+
+Quick example below:
+
+```{r, eval = FALSE}
+# read in data
+pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
+```
+
+```{r}
+# left_join the data together
+pbp_colors <- left_join(pbp, nfl_colors, by = c("posteam"))
+
+pbp_colors %>% 
+  # Excludes non-plays, eg end of quarter
+  filter(!is.na(posteam)) %>% 
+  select(posteam, team_abb, name, primary, secondary, logo) %>% 
+  # Distinct grabs only the distinct/unique cases of column
+  distinct(posteam, .keep_all = TRUE)
+```
+
+So we can see that the posteam and team_abb are equivalent, where the full team name, colors, and logo are also added. I dropped the other 250+ columns for printing here, but they would be in the complete dataframe.
 
 ## Prep
 
@@ -99,9 +231,11 @@ library(waffle) # waffle plots
 
 This is taken almost verbatim from Ben's Tutorial, but the idea is that you are adjusting the dataset to be ready for analysis. If you are interested in plays beyond pass/rush then you should probably NOT do these steps.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, eval = FALSE}
 pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
+```
 
+```{r}
 # clean up the data for further analysis
 pbp_rp <- pbp %>%
   # grab only penalties, pass, and run plays
@@ -285,7 +419,7 @@ theme_538 <- function(base_size = 12, font = "Lato") {
       # Backgrounds
       strip.background = element_blank(),
       strip.text = large_txt,
-      plot.background = element_rect(),
+      plot.background = element_blank(),
       plot.margin = unit(c(1, 1, 1, 1), "lines"),
 
       # Axis & Titles
@@ -305,8 +439,10 @@ theme_538 <- function(base_size = 12, font = "Lato") {
     )
 }
 ```
-<br>
-```{r, echo = FALSE}
+
+Now let's see what the edited theme looks like in action!
+
+```{r, fig.height = 10, fig.width=16, dpi = 500}
 ggplot(schotty, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_538()
@@ -464,9 +600,9 @@ juju_do_it <- pbp_rp %>%
   )
 
 ggplot(juju_do_it, aes(x = total_airyards, y = total_yards, color = game_num)) +
-  geom_point(size = 5) +
   # geom path follows the order of underlying data
   geom_path(size = 2) +
+  geom_point(size = 5) +
   # creates a line for comparison
   geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed") +
   # adds labels to only game 1 and 5
@@ -1273,6 +1409,7 @@ pbp_rp %>%
 
 ## Miscellaneous Plots
 
+
 ### Dumbbell Plots
 
 Dumbell plots are typically best served comparing two summary numbers within a group.
@@ -1697,6 +1834,7 @@ third_conv_table %>%
     )
   )
 ```
+
 
 ## The end
 
