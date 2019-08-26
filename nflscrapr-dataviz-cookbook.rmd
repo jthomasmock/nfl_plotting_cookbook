@@ -1307,7 +1307,7 @@ We can add median points at each yard by using `stat_summary()`, this allows us 
 
 ```{r}
 pos %>% 
-  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>% 
   filter(between(air_yards, 1, 25)) %>% 
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
@@ -1330,7 +1330,7 @@ We also:
 
 ```{r}
 pos %>% 
-  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>% 
   filter(between(air_yards, 1, 25)) %>% 
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
@@ -1341,8 +1341,9 @@ pos %>%
   coord_cartesian(ylim = c(-1.5, 5)) +
   scale_y_continuous(breaks = seq(-1.5, 4.5, by = 0.5)) +
   ggthemes::theme_fivethirtyeight() +
-  theme(legend.position = "none") +
-  scale_fill_manual(values = c("#ff2b4f", "#00b159", "#003399"),
+  theme(legend.position = "none",
+        strip.text = element_text(face = "bold")) +
+  scale_fill_manual(values = c("#00b159", "#003399", "#ff2b4f"),
                     aesthetics = c("color", "fill")) +
   labs(x = "Air Yards (Depth of Target)",
        y = "EPA\n",
@@ -1358,7 +1359,78 @@ We also see that RBs are essentially rarely targeted past 5 yards, and although 
 
 Overall this plot gives us a nice balance between showing the summary level data AND the distribution behind the plot. 
 
-Speaking of distributions - let's jump into the next section!
+Speaking of distributions - we'll get deeper in those in the next section!
+
+Let's make 1 more scatterplot though!
+
+### Completion rate by Depth of Target
+
+Keeping with the same idea, we can now add in another variable to our plot.
+
+* Variable 1 = x axis (air yards)  
+* Variable 2 = y axis (completion rate)  
+* Variable 3 = color/fill (position)  
+* Variable 4 = size (number of passes)  
+
+Four variables gives us lots of room to create a rich visualization, but we need to be careful to highlight what size represents. We can change the legend position and title as seen below.
+
+#### Create summary stats
+
+We can summarize the completion rate by air yards and position through the below script. We'll limit it to between 1 and 25 air yards again.
+
+```{r}
+pass_comp <- pos %>% 
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>% 
+  filter(between(air_yards, 1, 25)) %>% 
+  group_by(position, air_yards) %>% 
+  summarize(n = n(),
+            comp_rate = sum(complete_pass, na.rm = TRUE)/n,
+            epa = mean(epa, na.rm = TRUE))
+```
+
+#### First plot
+
+We'll go right ahead and add our nice colors, labels, themes, etc and focus on changing just the legend information.
+
+```{r}
+pass_comp_plot <- pass_comp %>% 
+  ggplot(aes(x = air_yards, y = comp_rate, fill = position)) +
+  geom_point(aes(size = n), shape = 21) +
+  geom_smooth(color = "white") +
+  geom_hline(yintercept = 0, size = 1, color = "black") +
+  geom_vline(xintercept = 20, size = 1, color = "black", linetype = "dashed", alpha = 0.5) +
+  geom_hline(yintercept = 0.5, size = 1, color = "black", linetype = "dashed", alpha = 0.5) +
+  facet_grid(~position) +
+  ggthemes::theme_fivethirtyeight() +
+  scale_fill_manual(values = c("#00b159", "#003399", "#ff2b4f"),
+                    aesthetics = c("color", "fill")) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Air Yards (Depth of Target)",
+       y = "EPA\n",
+       title = "Completion rate by Depth of Target on 1st/2nd Down",
+       subtitle = "Completion rate generally drops below 50% for passes > 20 air yards",
+       caption = "Graph: @thomas_mock | Data: @nflscrapR",
+       size = "N of Passes") +
+  theme(strip.text = element_text(face = "bold"))
+
+pass_comp_plot
+```
+
+
+#### Move the legend
+
+We can move the legend via `legend.position` - where the vector is now x, y position from 0 to 1. We can also drop the legend for JUST color and fill, as position is already indicated by the headers of the facets.
+
+```{r}
+pass_comp_plot +
+  guides(color = FALSE, fill = FALSE) +
+  theme(legend.direction = "vertical",
+        legend.position = c(0.1, 0.2),
+        legend.background = element_blank(),
+        legend.title = element_text(face = "bold"))
+```
+
+Alright - enough on scatter plots, let's look at how to approach the distribution of the data alone.
 
 ## Distributions
 
