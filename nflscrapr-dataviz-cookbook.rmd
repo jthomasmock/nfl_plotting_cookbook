@@ -206,6 +206,36 @@ pbp_colors %>%
 
 So we can see that the posteam and team_abb are equivalent, where the full team name, colors, and logo are also added. I dropped the other 250+ columns for printing here, but they would be in the complete dataframe.
 
+### `ggsave()`
+
+If you are going to export your graphics, it's worth it to go through `ggsave()` rather than the `RStudio` export button.
+
+The full [docs](https://ggplot2.tidyverse.org/reference/ggsave.html) have lots of great info but I'll summarize it here. The basic arguments in pseudocode are below.
+
+```{r, eval = FALSE}
+ggsave("plot_name.png", plot_object,
+       height = x, width = y, units = "in", dpi = "300")
+```
+
+A typical call of `ggsave` would look like the below.
+
+```{r, eval = F}
+ggsave("wr_epa.png", wr_epa_plot, 
+       height = 6, width = 8, units = "in", dpi = "350")
+```
+
+Arguably, the most important part is the DPI call - if you save through the export button you will typically have a low DPI (72) that has jagged edges on lines, as opposed to exporting with a higher DPI.
+
+You will likely spend some time perfecting the print size of your plots, but if you use your own theme with text sized appropriately you can typically set a specific DPI and work from there.
+
+### Changing fonts
+
+Changing fonts for graphics in R can be easy if you use a package like `extrafont` or `showtext`. You can then change font family in your theme calls or as part of your personal theme.
+
+`extrafont` has an [example](https://cran.r-project.org/web/packages/extrafont/README.html) walking through it's use.
+
+`showtext` has an [example](https://cran.rstudio.com/web/packages/showtext/vignettes/introduction.html) walking through it's use.
+
 ## Prep
 
 ### Load all the libraries you need
@@ -224,7 +254,7 @@ library(ggforce) # better annotations
 library(ggridges) # many distributions at once
 library(ggrepel) # better labels
 library(ggbeeswarm) # beeswarm plots
-library(waffle) # waffle plots
+library(extrafont) # for extra fonts
 ```
 
 ### Read in the pbp data
@@ -1225,7 +1255,8 @@ data <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master
 We can now clean up the data a bit and add the positional data with a `left_join()`. Ben was also nice enough to share a lot of players that had problematic names, so we can manually assign their position with an `if_else`.
 
 ```{r}
-data_clean <- pbp_rp %>%  filter(pass == 1 & sack == 0 & qb_scramble == 0) %>%
+data_clean <- pbp_rp %>%
+  filter(pass == 1 & sack == 0 & qb_scramble == 0) %>%
   select(
     name, pass, desc, posteam, epa, defteam, complete_pass, incomplete_pass,
     air_yards, receiver_player_name, down, success, complete_pass
@@ -1237,14 +1268,18 @@ data_clean <- pbp_rp %>%  filter(pass == 1 & sack == 0 & qb_scramble == 0) %>%
   ) %>%
   filter(drop == 0)
 
-problem_wrs <- c("K.Benjamin", "A.Cooper", "G.Tate", "A.Robinson", "B.Marshall",
-                 "D.Hilliard", "D.Thompson", "De.Thomas", "E.St", "K.Benjamin", "K.Bibbs",
-                 "Ty.Williams", "W.Snead", "W.Snead IV", "T.Pryor", "E.St. Brown",
-                 "A.Robinson II", "J.Gordon", "D.Carter", "B.Ellington",
-                 "A.Holmes", "R.Matthews", "M.Valdes", "V.Bolden")
+problem_wrs <- c(
+  "K.Benjamin", "A.Cooper", "G.Tate", "A.Robinson", "B.Marshall",
+  "D.Hilliard", "D.Thompson", "De.Thomas", "E.St", "K.Benjamin", "K.Bibbs",
+  "Ty.Williams", "W.Snead", "W.Snead IV", "T.Pryor", "E.St. Brown",
+  "A.Robinson II", "J.Gordon", "D.Carter", "B.Ellington",
+  "A.Holmes", "R.Matthews", "M.Valdes", "V.Bolden"
+)
 
-problem_rbs <- c("A.Abdullah", "C.Hyde", "Dam.", "T.Montgomery", "A.Ekeler", "T.Yeldon",
-                 "Dam. Williams", "Dar.Williams", "R.Jones II", "C.Anderson")
+problem_rbs <- c(
+  "A.Abdullah", "C.Hyde", "Dam.", "T.Montgomery", "A.Ekeler", "T.Yeldon",
+  "Dam. Williams", "Dar.Williams", "R.Jones II", "C.Anderson"
+)
 
 # fix a bunch of problem players
 pos <- data_clean %>%
@@ -1258,7 +1293,6 @@ pos <- data_clean %>%
     position = if_else(position == "FB", "RB", position)
   ) %>%
   filter(!is.na(position), down <= 2)
-
 ```
 
 #### First try at Air Yards vs EPA
@@ -1266,7 +1300,7 @@ pos <- data_clean %>%
 Now that we have the data like we want it - we can make a real quick scatter plot comparing Air Yards to EPA. This is basic, but highlights why we see the hard split in EPA across air yards. Essentially it breaks down to either incomplete (red) or complete passes (blue). This is important to think of down the road. Deeper passes move the needle more in EPA, but are they complete at the same rate?
 
 ```{r}
-pos %>% 
+pos %>%
   ggplot(aes(x = air_yards, y = epa, color = if_else(complete_pass == 1, "blue", "red"))) +
   geom_point() +
   scale_color_identity()
@@ -1278,9 +1312,9 @@ pos %>%
 Let's start making this more meaningful and try for the comparison of RB vs WR vs TE, also let's limit it to the more common depths and not limit it to dump passes behind the LOS. So we'll limit to passes that travel between 1 and 25 yards, and split by position.
 
 ```{r}
-pos %>% 
-  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
-  filter(between(air_yards, 1, 25)) %>% 
+pos %>%
+  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>%
+  filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point() +
   facet_grid(~position)
@@ -1293,9 +1327,9 @@ We see that WRs and TEs clearly get thrown more deep balls, where RB passes are 
 We add a color by position and make the points mostly transparent so we can see the stacking of points at each depth. However, we don't need two legends for position and we have more improvements to be made.
 
 ```{r}
-pos %>% 
-  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
-  filter(between(air_yards, 1, 25)) %>% 
+pos %>%
+  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>%
+  filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
   facet_grid(~position)
@@ -1306,9 +1340,9 @@ pos %>%
 We can add median points at each yard by using `stat_summary()`, this allows us to calculate summary stats and apply as a new layer on top of the existing graph.
 
 ```{r}
-pos %>% 
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>% 
-  filter(between(air_yards, 1, 25)) %>% 
+pos %>%
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
+  filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
   stat_summary(fun.y = "mean", geom = "point", size = 3, aes(color = position), shape = 21, color = "white", stroke = 1) +
@@ -1329,9 +1363,9 @@ We also:
 * Add titles and context
 
 ```{r}
-pos %>% 
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>% 
-  filter(between(air_yards, 1, 25)) %>% 
+pos %>%
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
+  filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
   geom_hline(yintercept = 0, size = 1, color = "black") +
@@ -1341,15 +1375,21 @@ pos %>%
   coord_cartesian(ylim = c(-1.5, 5)) +
   scale_y_continuous(breaks = seq(-1.5, 4.5, by = 0.5)) +
   ggthemes::theme_fivethirtyeight() +
-  theme(legend.position = "none",
-        strip.text = element_text(face = "bold")) +
-  scale_fill_manual(values = c("#00b159", "#003399", "#ff2b4f"),
-                    aesthetics = c("color", "fill")) +
-  labs(x = "Air Yards (Depth of Target)",
-       y = "EPA\n",
-       title = "WR and TE EPA generally increases by depth of target",
-       subtitle = "However, RBs generally don't get targeted at these distances!\n\nPasses = 1st/2nd, Air Yards between 1 and 25",
-       caption = "Data: @nflscrapR")
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold")
+  ) +
+  scale_fill_manual(
+    values = c("#00b159", "#003399", "#ff2b4f"),
+    aesthetics = c("color", "fill")
+  ) +
+  labs(
+    x = "Air Yards (Depth of Target)",
+    y = "EPA\n",
+    title = "WR and TE EPA generally increases by depth of target",
+    subtitle = "However, RBs generally don't get targeted at these distances!\n\nPasses = 1st/2nd, Air Yards between 1 and 25",
+    caption = "Data: @nflscrapR"
+  )
 
 ```
 
@@ -1379,13 +1419,15 @@ Four variables gives us lots of room to create a rich visualization, but we need
 We can summarize the completion rate by air yards and position through the below script. We'll limit it to between 1 and 25 air yards again.
 
 ```{r}
-pass_comp <- pos %>% 
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>% 
-  filter(between(air_yards, 1, 25)) %>% 
-  group_by(position, air_yards) %>% 
-  summarize(n = n(),
-            comp_rate = sum(complete_pass, na.rm = TRUE)/n,
-            epa = mean(epa, na.rm = TRUE))
+pass_comp <- pos %>%
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
+  filter(between(air_yards, 1, 25)) %>%
+  group_by(position, air_yards) %>%
+  summarize(
+    n = n(),
+    comp_rate = sum(complete_pass, na.rm = TRUE) / n,
+    epa = mean(epa, na.rm = TRUE)
+  )
 ```
 
 #### First plot
@@ -1393,7 +1435,7 @@ pass_comp <- pos %>%
 We'll go right ahead and add our nice colors, labels, themes, etc and focus on changing just the legend information.
 
 ```{r}
-pass_comp_plot <- pass_comp %>% 
+pass_comp_plot <- pass_comp %>%
   ggplot(aes(x = air_yards, y = comp_rate, fill = position)) +
   geom_point(aes(size = n), shape = 21) +
   geom_smooth(color = "white") +
@@ -1402,15 +1444,19 @@ pass_comp_plot <- pass_comp %>%
   geom_hline(yintercept = 0.5, size = 1, color = "black", linetype = "dashed", alpha = 0.5) +
   facet_grid(~position) +
   ggthemes::theme_fivethirtyeight() +
-  scale_fill_manual(values = c("#00b159", "#003399", "#ff2b4f"),
-                    aesthetics = c("color", "fill")) +
+  scale_fill_manual(
+    values = c("#00b159", "#003399", "#ff2b4f"),
+    aesthetics = c("color", "fill")
+  ) +
   scale_y_continuous(labels = scales::percent) +
-  labs(x = "Air Yards (Depth of Target)",
-       y = "EPA\n",
-       title = "Completion rate by Depth of Target on 1st/2nd Down",
-       subtitle = "Completion rate generally drops below 50% for passes > 20 air yards",
-       caption = "Graph: @thomas_mock | Data: @nflscrapR",
-       size = "N of Passes") +
+  labs(
+    x = "Air Yards (Depth of Target)",
+    y = "EPA\n",
+    title = "Completion rate by Depth of Target on 1st/2nd Down",
+    subtitle = "Completion rate generally drops below 50% for passes > 20 air yards",
+    caption = "Graph: @thomas_mock | Data: @nflscrapR",
+    size = "N of Passes"
+  ) +
   theme(strip.text = element_text(face = "bold"))
 
 pass_comp_plot
@@ -1424,10 +1470,12 @@ We can move the legend via `legend.position` - where the vector is now x, y posi
 ```{r}
 pass_comp_plot +
   guides(color = FALSE, fill = FALSE) +
-  theme(legend.direction = "vertical",
-        legend.position = c(0.1, 0.2),
-        legend.background = element_blank(),
-        legend.title = element_text(face = "bold"))
+  theme(
+    legend.direction = "vertical",
+    legend.position = c(0.1, 0.2),
+    legend.background = element_blank(),
+    legend.title = element_text(face = "bold")
+  )
 ```
 
 Alright - enough on scatter plots, let's look at how to approach the distribution of the data alone.
@@ -1634,7 +1682,7 @@ pbp_rp %>%
 
 ### Beeswarm
 
-`geom_beeswarm()` from the `beeswarm` package is an alternative to the above wokflow, but is almost identical to `geom_sina()` in its basic form.
+`geom_beeswarm()` from the `ggbeeswarm` package is an alternative to the above wokflow, but is almost identical to `geom_sina()` in its basic form.
 
 Basic form:  
 
