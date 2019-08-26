@@ -78,16 +78,16 @@ This allows you to essentially use many `if_else` statements at once
 
 
 ```{r}
-pbp %>% 
+pbp %>%
   mutate(
     stick_throw = case_when(
       air_yards < ydstogo ~ "Short of Sticks",
       air_yards == ydstogo ~ "At Stick",
       air_yards > ydstogo ~ "Past Stick",
       TRUE ~ NA_character_
-      )
-  ) %>% 
-  select(air_yards, ydstogo, stick_throw) %>% 
+    )
+  ) %>%
+  select(air_yards, ydstogo, stick_throw) %>%
   filter(!is.na(air_yards))
 ```
 
@@ -141,43 +141,43 @@ Please note that teams are listed by full name so to use them with the play-by-p
 The list of short teams named could be accomplished like so:
 
 ```{r}
-nfl_colors <- teamcolors %>% 
-  filter(league == "nfl") %>% 
+nfl_colors <- teamcolors %>%
+  filter(league == "nfl") %>%
   mutate(
     team_abb = case_when(
-    name == "Arizona Cardinals" ~ "ARI",
-    name == "Atlanta Falcons" ~ "ATL",
-    name == "Baltimore Ravens" ~ "BAL",
-    name == "Buffalo Bills" ~ "BUF",
-    name == "Carolina Panthers" ~ "CAR",
-    name == "Chicago Bears" ~ "CHI",
-    name == "Cincinnati Bengals" ~ "CIN",
-    name == "Cleveland Browns" ~ "CLE",
-    name == "Dallas Cowboys" ~ "DAL",
-    name == "Denver Broncos" ~ "DEN",
-    name == "Detroit Lions" ~ "DET",
-    name == "Green Bay Packers" ~ "GB",
-    name == "Houston Texans" ~ "HOU",
-    name == "Indianapolis Colts" ~ "IND",
-    name == "Jacksonville Jaguars" ~ "JAX",
-    name == "Kansas City Chiefs" ~ "KC",
-    name == "Los Angeles Rams" ~ "LA",
-    name == "Los Angeles Chargers" ~ "LAC",
-    name == "Miami Dolphins" ~ "MIA",
-    name == "Minnesota Vikings" ~ "MIN",
-    name == "New England Patriots" ~ "NE",
-    name == "New Orleans Saints" ~ "NO",
-    name == "New York Giants" ~ "NYG",
-    name == "New York Jets" ~ "NYJ",
-    name == "Oakland Raiders" ~ "OAK",
-    name == "Philadelphia Eagles" ~ "PHI",
-    name == "Pittsburgh Steelers" ~ "PIT",
-    name == "Seattle Seahawks" ~ "SEA",
-    name == "San Francisco 49ers" ~ "SF",
-    name == "Tampa Bay Buccaneers" ~ "TB",
-    name == "Tennessee Titans" ~ "TEN",
-    name == "Washington Redskins" ~ "WAS",
-    TRUE ~ NA_character_
+      name == "Arizona Cardinals" ~ "ARI",
+      name == "Atlanta Falcons" ~ "ATL",
+      name == "Baltimore Ravens" ~ "BAL",
+      name == "Buffalo Bills" ~ "BUF",
+      name == "Carolina Panthers" ~ "CAR",
+      name == "Chicago Bears" ~ "CHI",
+      name == "Cincinnati Bengals" ~ "CIN",
+      name == "Cleveland Browns" ~ "CLE",
+      name == "Dallas Cowboys" ~ "DAL",
+      name == "Denver Broncos" ~ "DEN",
+      name == "Detroit Lions" ~ "DET",
+      name == "Green Bay Packers" ~ "GB",
+      name == "Houston Texans" ~ "HOU",
+      name == "Indianapolis Colts" ~ "IND",
+      name == "Jacksonville Jaguars" ~ "JAX",
+      name == "Kansas City Chiefs" ~ "KC",
+      name == "Los Angeles Rams" ~ "LA",
+      name == "Los Angeles Chargers" ~ "LAC",
+      name == "Miami Dolphins" ~ "MIA",
+      name == "Minnesota Vikings" ~ "MIN",
+      name == "New England Patriots" ~ "NE",
+      name == "New Orleans Saints" ~ "NO",
+      name == "New York Giants" ~ "NYG",
+      name == "New York Jets" ~ "NYJ",
+      name == "Oakland Raiders" ~ "OAK",
+      name == "Philadelphia Eagles" ~ "PHI",
+      name == "Pittsburgh Steelers" ~ "PIT",
+      name == "Seattle Seahawks" ~ "SEA",
+      name == "San Francisco 49ers" ~ "SF",
+      name == "Tampa Bay Buccaneers" ~ "TB",
+      name == "Tennessee Titans" ~ "TEN",
+      name == "Washington Redskins" ~ "WAS",
+      TRUE ~ NA_character_
     ),
     posteam = team_abb
   )
@@ -196,10 +196,10 @@ pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/
 # left_join the data together
 pbp_colors <- left_join(pbp, nfl_colors, by = c("posteam"))
 
-pbp_colors %>% 
+pbp_colors %>%
   # Excludes non-plays, eg end of quarter
-  filter(!is.na(posteam)) %>% 
-  select(posteam, team_abb, name, primary, secondary, logo) %>% 
+  filter(!is.na(posteam)) %>%
+  select(posteam, team_abb, name, primary, secondary, logo) %>%
   # Distinct grabs only the distinct/unique cases of column
   distinct(posteam, .keep_all = TRUE)
 ```
@@ -1165,6 +1165,200 @@ qbs %>%
 ```
 
 
+### Deep Dive on Scatterplots
+
+Let's take Ben's other example of effectiveness when targeting RBs in passing plays. A bit deeper on the data cleaning step here as well.
+
+We will join the play by play data with the roster data to slice by position.
+
+```{r}
+# get from tutorial
+rosters <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/roster_data/regular_season/reg_roster_2018.csv") %>%
+  filter(position %in% c("WR", "RB", "FB", "TE"), season == 2018) %>% 
+  mutate(name = abbr_player_name, posteam = team) %>%
+  select(season, name, posteam, position)
+
+```
+
+```{r, eval = F, echo =F}
+
+# get from tutorial
+data <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv") %>% 
+  # grab only penalties, pass, and run plays
+  filter(!is.na(epa), play_type == "no_play" | play_type == "pass" | play_type == "run") %>%
+  # create pass, rush and success columns
+  mutate(
+    pass = if_else(str_detect(desc, "(pass)|(sacked)|(scramble)"), 1, 0),
+    rush = if_else(str_detect(desc, "(left end)|(left tackle)|(left guard)|(up the middle)|(right guard)|(right tackle)|(right end)") & pass == 0, 1, 0),
+    success = ifelse(epa > 0, 1, 0)
+  ) %>%
+  # filter to only pass or rush plays
+  filter(pass == 1 | rush == 1) %>%
+  mutate(
+    passer_player_name = ifelse(play_type == "no_play" & pass == 1,
+                                str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((pass)|(sack)|(scramble)))"),
+                                passer_player_name
+    ),
+    receiver_player_name = ifelse(play_type == "no_play" & str_detect(desc, "pass"),
+                                  str_extract(
+                                    desc,
+                                    "(?<=to\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?"
+                                  ),
+                                  receiver_player_name
+    ),
+    rusher_player_name = ifelse(play_type == "no_play" & rush == 1,
+                                str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((left end)|(left tackle)|(left guard)|		(up the middle)|(right guard)|(right tackle)|(right end)))"),
+                                rusher_player_name
+    )
+  ) %>%
+  mutate(
+    name = if_else(!is.na(passer_player_name), passer_player_name, rusher_player_name),
+    rusher = rusher_player_name,
+    receiver = receiver_player_name,
+    play = 1
+  )
+  
+```
+
+#### Join to add position
+
+We can now clean up the data a bit and add the positional data with a `left_join()`. Ben was also nice enough to share a lot of players that had problematic names, so we can manually assign their position with an `if_else`.
+
+```{r}
+data_clean <- pbp_rp %>%  filter(pass == 1 & sack == 0 & qb_scramble == 0) %>%
+  select(
+    name, pass, desc, posteam, epa, defteam, complete_pass, incomplete_pass,
+    air_yards, receiver_player_name, down, success, complete_pass
+  ) %>%
+  left_join(rosters, by = c("receiver_player_name" = "name", "posteam")) %>%
+  mutate(
+    qb = ifelse(is.na(position), 0, 1), rec = receiver_player_name,
+    drop = if_else(str_detect(desc, "(sacked)|(scramble)"), 1, 0)
+  ) %>%
+  filter(drop == 0)
+
+problem_wrs <- c("K.Benjamin", "A.Cooper", "G.Tate", "A.Robinson", "B.Marshall",
+                 "D.Hilliard", "D.Thompson", "De.Thomas", "E.St", "K.Benjamin", "K.Bibbs",
+                 "Ty.Williams", "W.Snead", "W.Snead IV", "T.Pryor", "E.St. Brown",
+                 "A.Robinson II", "J.Gordon", "D.Carter", "B.Ellington",
+                 "A.Holmes", "R.Matthews", "M.Valdes", "V.Bolden")
+
+problem_rbs <- c("A.Abdullah", "C.Hyde", "Dam.", "T.Montgomery", "A.Ekeler", "T.Yeldon",
+                 "Dam. Williams", "Dar.Williams", "R.Jones II", "C.Anderson")
+
+# fix a bunch of problem players
+pos <- data_clean %>%
+  mutate(
+    position = if_else(
+      rec %in% problem_wrs, "WR", position
+    ),
+    position = if_else(
+      rec %in% problem_rbs, "RB", position
+    ),
+    position = if_else(position == "FB", "RB", position)
+  ) %>%
+  filter(!is.na(position), down <= 2)
+
+```
+
+#### First try at Air Yards vs EPA
+
+Now that we have the data like we want it - we can make a real quick scatter plot comparing Air Yards to EPA. This is basic, but highlights why we see the hard split in EPA across air yards. Essentially it breaks down to either incomplete (red) or complete passes (blue). This is important to think of down the road. Deeper passes move the needle more in EPA, but are they complete at the same rate?
+
+```{r}
+pos %>% 
+  ggplot(aes(x = air_yards, y = epa, color = if_else(complete_pass == 1, "blue", "red"))) +
+  geom_point() +
+  scale_color_identity()
+```
+
+
+#### What about by position? 
+
+Let's start making this more meaningful and try for the comparison of RB vs WR vs TE, also let's limit it to the more common depths and not limit it to dump passes behind the LOS. So we'll limit to passes that travel between 1 and 25 yards, and split by position.
+
+```{r}
+pos %>% 
+  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
+  filter(between(air_yards, 1, 25)) %>% 
+  ggplot(aes(x = air_yards, y = epa, fill = position)) +
+  geom_point() +
+  facet_grid(~position)
+```
+
+We see that WRs and TEs clearly get thrown more deep balls, where RB passes are deeply concentrated at 0-5 yards. However due to the colors/opacity we are losing some data clarity.
+
+#### Change the alpha (transparency)
+
+We add a color by position and make the points mostly transparent so we can see the stacking of points at each depth. However, we don't need two legends for position and we have more improvements to be made.
+
+```{r}
+pos %>% 
+  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
+  filter(between(air_yards, 1, 25)) %>% 
+  ggplot(aes(x = air_yards, y = epa, fill = position)) +
+  geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
+  facet_grid(~position)
+```
+
+#### Add summary points
+
+We can add median points at each yard by using `stat_summary()`, this allows us to calculate summary stats and apply as a new layer on top of the existing graph.
+
+```{r}
+pos %>% 
+  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
+  filter(between(air_yards, 1, 25)) %>% 
+  ggplot(aes(x = air_yards, y = epa, fill = position)) +
+  geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
+  stat_summary(fun.y = "mean", geom = "point", size = 3, aes(color = position), shape = 21, color = "white", stroke = 1) +
+  geom_smooth(color = "white", alpha = 0.5) +
+  facet_grid(~position)
+```
+
+We can see that the WRs and TEs essentially have a linear increase in EPA (even with incompletions) as we go from 0 - 20 air yards, whereas RBs have much higher fluctation after 5 yards due to smaller sample sizes.
+
+#### Limit the window
+
+Because we essentially are "wasting" so much of the plot to white space for extremely rare situations we can make a judgement call to "zoom" in on the plot with `coord_cartesian`. Importantly, this doesn't REMOVE the points, but rather just zooms on the graph. A `scale_y_continuous` setting of limit would actually remove points and change the fitted curve.
+
+We also:
+
+* Manually assign the colors to be better versions of the default red, green, blue  
+* Add a theme  
+* Add titles and context
+
+```{r}
+pos %>% 
+  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>% 
+  filter(between(air_yards, 1, 25)) %>% 
+  ggplot(aes(x = air_yards, y = epa, fill = position)) +
+  geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
+  geom_hline(yintercept = 0, size = 1, color = "black") +
+  stat_summary(fun.y = "mean", geom = "point", size = 3, aes(color = position), shape = 21, color = "white", stroke = 1) +
+  geom_smooth(color = "white", alpha = 0.5) +
+  facet_grid(~position) +
+  coord_cartesian(ylim = c(-1.5, 5)) +
+  scale_y_continuous(breaks = seq(-1.5, 4.5, by = 0.5)) +
+  ggthemes::theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("#ff2b4f", "#00b159", "#003399"),
+                    aesthetics = c("color", "fill")) +
+  labs(x = "Air Yards (Depth of Target)",
+       y = "EPA\n",
+       title = "WR and TE EPA generally increases by depth of target",
+       subtitle = "However, RBs generally don't get targeted at these distances!\n\nPasses = 1st/2nd, Air Yards between 1 and 25",
+       caption = "Data: @nflscrapR")
+
+```
+
+We can immediately notice a few things - because we still show the points behind the mean we see that the completion rate shifts after about 20 air yards for all positions, which corresponds to a major shift in EPA. We can see that there is a major sweet spot for WRs/TEs at 10-20ish air yards where the EPA is maximized, but beyond that plays can get into the home run or bust category.
+
+We also see that RBs are essentially rarely targeted past 5 yards, and although they have some high peaks these are due to just a few successful plays in a limited sample size. 
+
+Overall this plot gives us a nice balance between showing the summary level data AND the distribution behind the plot. 
+
+Speaking of distributions - let's jump into the next section!
 
 ## Distributions
 
