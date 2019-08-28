@@ -2250,6 +2250,80 @@ rb_receiving %>%
   )
 ```
 
+#### Another 538 Table
+
+Yet another example, from a recent [FiveThirtyEight article](https://fivethirtyeight.com/features/are-we-sure-aaron-rodgers-is-still-an-elite-quarterback/). Let's see if we can add the color scale to yards/dropback.
+
+```{r}
+url <- "https://fivethirtyeight.com/features/are-we-sure-aaron-rodgers-is-still-an-elite-quarterback/"
+
+rodgers <- url %>% 
+  xml2::read_html() %>% 
+  rvest::html_table() %>% 
+  purrr::chuck(1) %>% 
+  janitor::clean_names() %>% 
+  dplyr::rename("rank" = x) %>% 
+  dplyr::as_tibble() %>% 
+  mutate(yards = stringr::str_remove(yards, ",")) %>% 
+  mutate_at(.vars = vars(g:qbr), as.double)
+
+rodgers 
+```
+
+##### Basic Table
+
+```{r}
+rodgers_table <- rodgers %>%
+  gt() %>%
+  tab_options(
+    table.border.top.color = "white",
+    row.striping.include_table_body = FALSE,
+    row.padding = px(4)
+  ) %>%
+  tab_source_note(
+    source_note = "SOURCE: ESPN STATS & INFORMATION GROUP"
+  ) %>%
+  fmt_number(
+    columns = vars(yards),
+    decimals = 0
+  ) %>%
+  cols_label(
+    rank = "",
+    player = "PLAYER",
+    g = "G",
+    dropbacks = "DROPBACKS",
+    yards = "YARDS",
+    yards_per_dropback = "YARDS PER DROPBACK",
+    qbr = "QBR"
+  ) 
+
+rodgers_table
+```
+
+##### Specific Coloring
+
+Coloring by ranged values is done by `data_color()`, where you can manually set palettes or use palettes from a specific package. Domain controls the upper and lower limits. `domain = NULL` uses the range of the data, but you can also specify manual values.
+
+```{r}
+rodgers_table %>% 
+  # This is the big player
+  data_color(
+    columns = vars(yards_per_dropback),
+    colors = scales::col_numeric(
+      palette = c("#F8F8F8","#30a2da"),
+      domain = NULL
+      )
+    ) %>% 
+  tab_style(
+    style = cell_text(
+      weight = "bold"
+    ),
+    locations = cells_data(
+      rows = player == "Aaron Rodgers"
+    )
+  )
+```
+
 
 ## The end
 
