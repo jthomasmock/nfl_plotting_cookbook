@@ -1370,7 +1370,7 @@ pos %>%
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
   geom_hline(yintercept = 0, size = 1, color = "black") +
   stat_summary(fun.y = "mean", geom = "point", size = 3, aes(color = position), shape = 21, color = "white", stroke = 1) +
-  geom_smooth(color = "white", alpha = 0.5) +
+  geom_smooth(color = "white", method = "loess", alpha = 0.5, span = 1) +
   facet_grid(~position) +
   coord_cartesian(ylim = c(-1.5, 5)) +
   scale_y_continuous(breaks = seq(-1.5, 4.5, by = 0.5)) +
@@ -1397,11 +1397,48 @@ We can immediately notice a few things - because we still show the points behind
 
 We also see that RBs are essentially rarely targeted past 5 yards, and although they have some high peaks these are due to just a few successful plays in a limited sample size. 
 
-Overall this plot gives us a nice balance between showing the summary level data AND the distribution behind the plot. 
+Overall this plot gives us a nice balance between showing the summary level data AND the distribution behind the plot. Let's take one more shot at it to highlight limited sample size via changing the size of the summary points themselves.
 
-Speaking of distributions - we'll get deeper in those in the next section!
+#### Alternate approach
 
-Let's make 1 more scatterplot though!
+Rather than using stat_summary, you could also create either a summary dataframe and link to it inside `ggplot` OR a summary column within the dataframe as seen below. We also drop the color/group for the background data here as an alternate approach.
+
+```{r}
+pos %>%
+  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
+  filter(between(air_yards, 1, 25)) %>%
+  group_by(position, air_yards) %>% 
+  mutate(n = n(),
+         mean = mean(epa)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = air_yards, y = epa, fill = position)) +
+  geom_point(aes(group = air_yards), shape = 21, alpha = 0.2, fill = "black") +
+  geom_point(aes(size = n, x = air_yards, y = mean), shape = 21, stroke = 0.5, color = "white", alpha = 0.8) +
+  geom_hline(yintercept = 0, size = 1, color = "black") +
+  stat_smooth(color = "white", method = "loess", alpha = 0.5) +
+  facet_grid(~position) +
+  coord_cartesian(ylim = c(-1.5, 5)) +
+  scale_y_continuous(breaks = seq(-1.5, 4.5, by = 0.5)) +
+  ggthemes::theme_fivethirtyeight() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold")
+  ) +
+  scale_fill_manual(
+    values = c("#00b159", "#003399", "#ff2b4f"),
+    aesthetics = c("color", "fill")
+  ) +
+  labs(
+    x = "Air Yards (Depth of Target)",
+    y = "EPA\n",
+    title = "WR and TE EPA generally increases by depth of target",
+    subtitle = "However, RBs generally don't get targeted at these distances!\n\nPasses = 1st/2nd, Air Yards between 1 and 25",
+    caption = "Data: @nflscrapR"
+  )
+```
+
+Here we can see through both the distribution AND the point size that RBs aren't really targeted beyond 5 air yards. Let's take a look at completion rate by depth of target to further clarify this story!
+
 
 ### Completion rate by Depth of Target
 
@@ -1437,8 +1474,8 @@ We'll go right ahead and add our nice colors, labels, themes, etc and focus on c
 ```{r}
 pass_comp_plot <- pass_comp %>%
   ggplot(aes(x = air_yards, y = comp_rate, fill = position)) +
-  geom_point(aes(size = n), shape = 21) +
-  geom_smooth(color = "white") +
+  geom_point(aes(size = n), shape = 21, stroke = 0.5) +
+  geom_smooth(color = "white", method = "loess") +
   geom_hline(yintercept = 0, size = 1, color = "black") +
   geom_vline(xintercept = 20, size = 1, color = "black", linetype = "dashed", alpha = 0.5) +
   geom_hline(yintercept = 0.5, size = 1, color = "black", linetype = "dashed", alpha = 0.5) +
@@ -1477,6 +1514,8 @@ pass_comp_plot +
     legend.title = element_text(face = "bold")
   )
 ```
+
+RBs drop off faster, where the completion rate drops below 50% around 7.5 yards as opposed to 17.5 - 20 yards. Additionally there are again fewer total passes thrown at these distances than WRs/TEs.
 
 Alright - enough on scatter plots, let's look at how to approach the distribution of the data alone.
 
@@ -2146,6 +2185,68 @@ third_conv_table %>%
     locations = cells_column_labels(
       columns = vars(mean_yardage, mean_ydstogo)
     )
+  )
+```
+
+### FiveThirtyEight style table
+
+One more example, from a recent [FiveThirtyEight article](https://fivethirtyeight.com/features/sorry-running-backs-even-your-receiving-value-can-be-easily-replaced/). This example uses `rvest` which is a web-scraping package in R.
+
+```{r}
+url <- "https://fivethirtyeight.com/features/sorry-running-backs-even-your-receiving-value-can-be-easily-replaced/"
+
+rb_receiving <- url %>% 
+  xml2::read_html() %>% 
+  rvest::html_table() %>% 
+  purrr::chuck(1) %>% 
+  purrr::set_names(nm = c("team", "attempts", "successful", "success_rate")) %>% 
+  dplyr::as_tibble() %>% 
+  filter(team != "team") %>% 
+  mutate(success_rate = stringr::str_remove(success_rate, "%")) %>% 
+  mutate_at(.vars = vars(attempts:success_rate), as.double)
+
+rb_receiving  
+```
+
+```{r}
+rb_receiving %>%
+  mutate(
+    success_rate = if_else(team == "Kansas City",
+      success_rate / 100,
+      success_rate
+    )
+  ) %>%
+  gt() %>%
+  tab_spanner(
+    label = "PASSES TO RBS",
+    columns = vars(attempts, successful)
+  ) %>%
+  tab_options(
+    table.border.top.color = "white",
+    row.striping.include_table_body = FALSE,
+    row.padding = px(4)
+  ) %>%
+  tab_source_note(
+    source_note = "SOURCE: ESPN STATS & INFORMATION GROUP"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "lightblue")
+    ),
+    locations = cells_data(
+      columns = vars(success_rate)
+    )
+  ) %>%
+  fmt_percent(
+    columns = vars(success_rate),
+    rows = 1,
+    decimals = 1
+  ) %>%
+  cols_label(
+    team = "TEAM",
+    attempts = "ATTEMPTS",
+    successful = "SUCCESSFUL",
+    success_rate = "SUCCESS RATE"
   )
 ```
 
