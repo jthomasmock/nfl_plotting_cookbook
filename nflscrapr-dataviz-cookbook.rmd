@@ -25,6 +25,10 @@ library(ggridges) # many distributions at once
 library(ggrepel) # better labels
 library(ggbeeswarm)
 library(waffle)
+library(rvest) # webscraping in R
+library(glue) # awesome text creation
+library(gganimate) # create gifs with ggplot
+library(ggimage) # load team images in ggplot
 
 pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
 ```
@@ -2323,6 +2327,217 @@ rodgers_table %>%
     )
   )
 ```
+
+
+## `gganimate` and web scraping
+
+The [`gganimate` package]() is a package from Thomas Lin Pederson and Dave Robinson. It allows for the conversion and automatic generation of plots into gifs. There are specific functions that allow you to quickly convert an existing plot into a gif, as well as sophisticated additional steps with regards to transformation between images.
+
+A quick set of examples can be found at the [`gganimate` wiki](https://github.com/thomasp85/gganimate/wiki) or [`gganimate` homepage](https://gganimate.com/).
+
+### QBR Rating over time
+
+Ben Baldwin has been creating quarterback ratings (QBR) from [ESPN data](http://www.espn.com/nfl/qbr/_/year/2019/type/player-week/week/1) each week, so let's take a look at the data and try to create a gif of QBR each week. 
+
+![](team_qbr.png)
+
+### Get the data
+
+Specific libraries used for this example seen below.
+
+```{r, eval = FALSE}
+# Load Libraries ----------------------------------------------------------
+
+library(rvest)
+library(tidyverse)
+library(glue)
+library(gganimate)
+library(teamcolors)
+library(ggimage)
+```
+  
+We'll be loading data about team logos from Michael Lopez' github, team colors from `teamcolors` package, and scraping the QBR data from ESPN.
+  
+```{r}
+# Load Data for Team Logos & Colors ---------------------------------------
+
+df_logos <- read_csv("https://raw.githubusercontent.com/statsbylopez/BlogPosts/master/nfl_teamlogos.csv")
+
+nfl_colors <- teamcolors %>% 
+  filter(league == "nfl") %>% 
+  select("team" = name, primary)
+
+```
+  
+We'll create a function that we apply across multiple inputs. Otherwise we'd need to call the scraping function 14 separate times!
+  
+```{r}
+# Weekly NFL ratings by ESPN Scrape Function ------------------------------
+
+qbr_weekly <- function(week){
+  
+  # Be respectful - always pause between scraping sessions
+  Sys.sleep(5)
+  
+  # Build up URL
+  url <- glue::glue("http://www.espn.com/nfl/qbr/_/year/2019/type/player-week/week/{week}")
+  
+  url %>% 
+    read_html() %>% 
+    html_table() %>% 
+    .[[1]] %>% 
+    set_names(nm = .[1,]) %>% 
+    janitor::clean_names() %>% 
+    filter(player != "PLAYER") %>% 
+    as_tibble() %>% 
+    mutate(week = week)
+}
+
+```
+
+We can test the function on week 1 data, and then call it on all the data so far (weeks 1 - 14).
+
+```{r}
+qbr_weekly(1)
+```
+
+We can see that the scrape worked, and we have the necessary data to move forward.
+
+#### `purrr` - use the function multiple times
+
+We can use the function multiple times with various inputs via the `purrr` package. Specifically I'll be using `purrr::map_dfr()` which will create a single dataframe of all the data.
+
+```{r, eval = FALSE}
+
+# Scrape and clean up QBR Data --------------------------------------------
+
+raw_qbr <- 1:14 %>% 
+  map_dfr(.f = qbr_weekly) %>% 
+  mutate_at(.vars = vars(rk, pts_added:week), as.double) %>% 
+  separate(player, into = c("player", "team_abb"), sep = ",") %>% 
+  mutate_at(.vars = vars(player, team_abb), str_trim)
+
+```
+
+This has now collected all the data for 14 weeks - let's move forward!
+
+#### Combine the data
+
+We need to also attach the team color data and the team logos. We'll use `dplyr::left_join()` again to match and combine data.
+
+```{r, eval = FALSE}
+# Add NFL Colors and Logos ------------------------------------------------
+
+all_qbr <- raw_qbr %>% 
+  mutate(team_abb = case_when(
+    team_abb == "WSH" ~ "WAS",
+    team_abb == "LAR" ~ "LA",
+    TRUE ~ team_abb
+  )) %>% 
+  left_join(df_logos, by = c("team_abb" = "team_code")) %>% 
+  group_by(week) %>% 
+  mutate(rk = row_number()) %>% 
+  ungroup() %>% 
+  left_join(nfl_colors, by = "team") 
+```
+
+#### Create rolling average
+
+The data from ESPN is weekly ratings, so we'll need to create a rolling average which averages together the ratings across the weeks. We'll use `dplyr::cummean()` for the cumulative mean.
+
+```{r, eval = FALSE}
+# Add Rolling Average -----------------------------------------------------
+average_qbr <- all_qbr %>% 
+  group_by(player) %>% 
+  mutate(avg_qbr = cummean(total_qbr)) %>% 
+  ungroup()
+
+```
+
+#### Create the gif!
+
+We can now create a gif based on the dataframe - please note that this could take substantial time (2 - 15 min) depending on your output/plot. `gganimate` prints nice estimates of how much time is remaining, so you'll know ahead of time.
+
+However, I'd recommend checking a static plot for theme and basic setup and then move forward with the gif once you have a good idea of what you want to make.
+
+The big player here is `transition_states()`, `enter_fade()`, and `exit_shrink()` - these are the `gganimate` specifics that control appearance and inputs from the data. I've also added `{closest_state}` in the labels, so that the week is updated as it iterates through the data.
+
+```{r, eval = FALSE}
+# Weekly Bar Plot ---------------------------------------------------------
+
+weekly_plot <- average_qbr %>% 
+  group_by(week) %>% 
+  arrange(desc(avg_qbr)) %>% 
+  mutate(rk = row_number()) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = rk, y = avg_qbr)) +
+  geom_col(aes(fill = primary, color = primary), alpha = 0.7) +
+  geom_image(aes(image = url), size = 0.05) +
+  scale_color_identity(aesthetics = c("color", "fill")) +
+  ggthemes::theme_fivethirtyeight() +
+  theme(panel.grid.major.x = element_blank(),
+        legend.position = "none") +
+  scale_x_continuous(breaks = seq(0, 30, 5)) +
+  transition_states(
+    week,
+    transition_length = 5, 
+    state_length = 20
+  ) +
+  enter_fade() +
+  exit_shrink() +
+  labs(title = 'Total QBR by Week - 2019',
+          subtitle = 'Week {closest_state}',
+       x = "Rank",
+       y = "QBR",
+       caption = "Data: ESPN | Plot: @thomas_mock")
+
+# Save Weekly Bar Plot ----------------------------------------------------
+
+
+animate(weekly_plot, height = 1000, width = 1000, fps = 20, duration = 36, end_pause = 5)
+anim_save("weekly_qbr.gif")
+```
+
+![](weekly_qbr.gif)
+
+### Another gif
+
+We can also create a different type of gif - let's grab 8 of the top rated QB teams and compare how they have changed over the season.
+
+Since we have moved week to the x-axis - we are now creating new plots across the time period, where each frame will add new data across time. The `gganimate` specific function here is `transition_reveal()` and we can supply week as the argument. `gganimate` knows to only respect lines for the maintenance of geom pieces, whereas the image and segments will be created on the fly.
+
+```{r, eval = FALSE}
+# Top players plot --------------------------------------------------------
+
+total_plot <- average_qbr %>%
+  filter(team_abb %in% c("GB", "BAL", "MIN", "DAL", "SEA", "HOU", "KC")) %>% 
+  ggplot(aes(x = week, y = avg_qbr, group = team)) +
+  geom_segment(aes(xend = 15, yend = avg_qbr), linetype = 2, color = 'grey') +
+  geom_line(aes(color = primary), alpha = 0.7, size = 2) +
+  geom_image(aes(x = 15, image = url), size = 0.05) +
+  scale_color_identity(aesthetics = c("color", "fill")) +
+  ggthemes::theme_fivethirtyeight() +
+  theme(panel.grid.major.x = element_blank(),
+        legend.position = "none",
+        axis.title = element_text(face = "bold")) +
+  scale_x_continuous(breaks = seq(0, 14, 1)) +
+  coord_cartesian(clip = "off") + 
+  transition_reveal(week) + 
+  labs(title = 'Total QBR by Week - 2019',
+       x = "",
+       y = "QBR",
+       caption = "Data: ESPN | Plot: @thomas_mock")
+
+# total_plot
+
+# Save Top Players plot ---------------------------------------------------
+
+
+animate(total_plot, height = 1000, width = 1000, fps = 20, duration = 20, end_pause = 10)
+anim_save("top_qbr.gif")
+```
+
+![](top_qbr.gif)  
 
 
 ## The end
