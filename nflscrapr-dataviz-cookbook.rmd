@@ -30,12 +30,12 @@ library(glue) # awesome text creation
 library(gganimate) # create gifs with ggplot
 library(ggimage) # load team images in ggplot
 
-pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
+pbp <- read_csv("https://raw.githubusercontent.com/guga31bb/nflfastR-data/master/data/play_by_play_2019.csv.gz")
 ```
 
-# How to improve your `nflscrapR` graphics
+## How to improve your `nflfastR` graphics
 
-This resource is modeled after the fantastic [BBC Graphics Cookbook](https://bbc.github.io/rcookbook/), which is also worth checking out. The `nflscrapR` team ([Maksim Horowitz](https://twitter.com/bklynmaks/), [Ron Yurko](https://twitter.com/Stat_Ron/), and [Sam Ventura](https://twitter.com/stat_sam/)) have compiled easy to access play-by-play stats opening a deeper world of NFL analytics for reporters, bloggers and enthusiasts (and probably some NFL teams). [Ben Baldwin](https://twitter.com/benbbaldwin) has compiled a [quickstart guide](https://gist.github.com/guga31bb/5634562c5a2a7b1e9961ac9b6c568701) to using this data. As such, this resource is not aimed at reproducing that tutorial, but giving you some quick guides for improving the graphics you create via `ggplot2`. It's easy to get started quickly exploring the data with `ggplot2` and hopefully this helps with your "publication" quality plots.
+This resource is modeled after the fantastic [BBC Graphics Cookbook](https://bbc.github.io/rcookbook/), which is also worth checking out. The `nflscrapR` team ([Maksim Horowitz](https://twitter.com/bklynmaks/), [Ron Yurko](https://twitter.com/Stat_Ron/), and [Sam Ventura](https://twitter.com/stat_sam/)) have compiled easy to access play-by-play stats opening a deeper world of NFL analytics for reporters, bloggers and enthusiasts (and probably some NFL teams). This work has been extended in [`nflfastR`](https://mrcaseb.github.io/nflfastR/) by [Sebastian Carl](https://twitter.com/mrcaseb) and [Ben Baldwin](https://twitter.com/benbbaldwin). [Ben Baldwin](https://twitter.com/benbbaldwin) has compiled a [quickstart guide](https://mrcaseb.github.io/nflfastR/articles/beginners_guide.html) to using this data. As such, this resource is not aimed at reproducing that tutorial, but giving you some quick guides for improving the graphics you create via `ggplot2`. It's easy to get started quickly exploring the data with `ggplot2` and hopefully this helps with your "publication" quality plots.
 
 I am providing a lot of my own **opinion** on certain dataviz choices - everyone is allowed to make their own decisions with regards to colors, ink use, chart type - but I do hope that this resource opens your eyes to some of the art of dataviz now that you have made progress with the science.
 
@@ -132,12 +132,14 @@ The [documentation for `ggplot2`](https://ggplot2.tidyverse.org/articles/ggplot2
 
 ### `teamcolors` package
 
-Gives you ALL the colors for NFL teams
+Gives you ALL the colors for NFL teams, although `nflfastR` also provides colors and logos via `nflfastR::teams_colors_logos`.
 
 #### Using `teamcolors`
 
 ```{r}
 filter(teamcolors, league == "nfl")
+# or
+nflfastR::teams_colors_logos
 ```
 
 Please note that teams are listed by full name so to use them with the play-by-play data you will need to "join" the `teamcolors` and play-by-play datasets together.
@@ -145,65 +147,26 @@ Please note that teams are listed by full name so to use them with the play-by-p
 The list of short teams named could be accomplished like so:
 
 ```{r}
-nfl_colors <- teamcolors %>%
-  filter(league == "nfl") %>%
-  mutate(
-    team_abb = case_when(
-      name == "Arizona Cardinals" ~ "ARI",
-      name == "Atlanta Falcons" ~ "ATL",
-      name == "Baltimore Ravens" ~ "BAL",
-      name == "Buffalo Bills" ~ "BUF",
-      name == "Carolina Panthers" ~ "CAR",
-      name == "Chicago Bears" ~ "CHI",
-      name == "Cincinnati Bengals" ~ "CIN",
-      name == "Cleveland Browns" ~ "CLE",
-      name == "Dallas Cowboys" ~ "DAL",
-      name == "Denver Broncos" ~ "DEN",
-      name == "Detroit Lions" ~ "DET",
-      name == "Green Bay Packers" ~ "GB",
-      name == "Houston Texans" ~ "HOU",
-      name == "Indianapolis Colts" ~ "IND",
-      name == "Jacksonville Jaguars" ~ "JAX",
-      name == "Kansas City Chiefs" ~ "KC",
-      name == "Los Angeles Rams" ~ "LA",
-      name == "Los Angeles Chargers" ~ "LAC",
-      name == "Miami Dolphins" ~ "MIA",
-      name == "Minnesota Vikings" ~ "MIN",
-      name == "New England Patriots" ~ "NE",
-      name == "New Orleans Saints" ~ "NO",
-      name == "New York Giants" ~ "NYG",
-      name == "New York Jets" ~ "NYJ",
-      name == "Oakland Raiders" ~ "OAK",
-      name == "Philadelphia Eagles" ~ "PHI",
-      name == "Pittsburgh Steelers" ~ "PIT",
-      name == "Seattle Seahawks" ~ "SEA",
-      name == "San Francisco 49ers" ~ "SF",
-      name == "Tampa Bay Buccaneers" ~ "TB",
-      name == "Tennessee Titans" ~ "TEN",
-      name == "Washington Redskins" ~ "WAS",
-      TRUE ~ NA_character_
-    ),
-    posteam = team_abb
-  )
+left_join(pbp, nflfastR::teams_colors_logos, by = c("posteam" = "team_abbr"))
 ```
 
-You could then use `dplyr::left_join()` to join the full names, colors, and team logos to the play-by-play data. Without getting into the weeds TOO much, a `left_join` basically finds cases where there is a matching row in the common column (posteam) for both dataframes, and then adds the additional columns from nfl_colors to the play-by-play data. Joins are a very important concept when trying to combine multiple datasets, and if you want to read more about the various types and their use cases check out the [`dplyr` joins docs](https://dplyr.tidyverse.org/reference/join.html).
+You could then use `dplyr::left_join()` to join the full full_team_names, colors, and team logos to the play-by-play data. Without getting into the weeds TOO much, a `left_join` basically finds cases where there is a matching row in the common column (posteam) for both dataframes, and then adds the additional columns from nfl_colors to the play-by-play data. Joins are a very important concept when trying to combine multiple datasets, and if you want to read more about the various types and their use cases check out the [`dplyr` joins docs](https://dplyr.tidyverse.org/reference/join.html).
 
 Quick example below:
 
 ```{r, eval = FALSE}
 # read in data
-pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
+pbp <- read_csv("https://raw.githubusercontent.com/guga31bb/nflfastR-data/master/data/play_by_play_2019.csv.gz")
 ```
 
 ```{r}
 # left_join the data together
-pbp_colors <- left_join(pbp, nfl_colors, by = c("posteam"))
+pbp_colors <- left_join(pbp, nflfastR::teams_colors_logos, by = c("posteam" = "team_abbr"))
 
 pbp_colors %>%
   # Excludes non-plays, eg end of quarter
   filter(!is.na(posteam)) %>%
-  select(posteam, team_abb, name, primary, secondary, logo) %>%
+  select(posteam, team_name, team_color, team_color2, team_logo_wikipedia) %>%
   # Distinct grabs only the distinct/unique cases of column
   distinct(posteam, .keep_all = TRUE)
 ```
@@ -228,7 +191,7 @@ ggsave("wr_epa.png", wr_epa_plot,
        height = 6, width = 8, units = "in", dpi = "350")
 ```
 
-Arguably, the most important part is the DPI call - if you save through the export button you will typically have a low DPI (72) that has jagged edges on lines, as opposed to exporting with a higher DPI.
+Arguably, the most important part is the DPI call - if you save through the export button you will typically have a low DPI (72) that has jagged edges on lines (known as aliasing), as opposed to exporting with a higher DPI which will give a higher quality appearance.
 
 You will likely spend some time perfecting the print size of your plots, but if you use your own theme with text sized appropriately you can typically set a specific DPI and work from there.
 
@@ -266,45 +229,7 @@ library(extrafont) # for extra fonts
 This is taken almost verbatim from Ben's Tutorial, but the idea is that you are adjusting the dataset to be ready for analysis. If you are interested in plays beyond pass/rush then you should probably NOT do these steps.
 
 ```{r, message=FALSE, warning=FALSE, eval = FALSE}
-pbp <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv")
-```
-
-```{r}
-# clean up the data for further analysis
-pbp_rp <- pbp %>%
-  # grab only penalties, pass, and run plays
-  filter(!is.na(epa), play_type == "no_play" | play_type == "pass" | play_type == "run") %>%
-  # create pass, rush and success columns
-  mutate(
-    pass = if_else(str_detect(desc, "(pass)|(sacked)|(scramble)"), 1, 0),
-    rush = if_else(str_detect(desc, "(left end)|(left tackle)|(left guard)|(up the middle)|(right guard)|(right tackle)|(right end)") & pass == 0, 1, 0),
-    success = ifelse(epa > 0, 1, 0)
-  ) %>%
-  # filter to only pass or rush plays
-  filter(pass == 1 | rush == 1) %>%
-  mutate(
-    passer_player_name = ifelse(play_type == "no_play" & pass == 1,
-      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((pass)|(sack)|(scramble)))"),
-      passer_player_name
-    ),
-    receiver_player_name = ifelse(play_type == "no_play" & str_detect(desc, "pass"),
-      str_extract(
-        desc,
-        "(?<=to\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?"
-      ),
-      receiver_player_name
-    ),
-    rusher_player_name = ifelse(play_type == "no_play" & rush == 1,
-      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((left end)|(left tackle)|(left guard)|		(up the middle)|(right guard)|(right tackle)|(right end)))"),
-      rusher_player_name
-    )
-  ) %>%
-  mutate(
-    name = if_else(!is.na(passer_player_name), passer_player_name, rusher_player_name),
-    rusher = rusher_player_name,
-    receiver = receiver_player_name,
-    play = 1
-  )
+pbp <- read_csv("https://raw.githubusercontent.com/guga31bb/nflfastR-data/master/data/play_by_play_2019.csv.gz")
 ```
 
 ## Our first data summary
@@ -314,21 +239,21 @@ This is also credited to Ben:
 "Let's look at which teams were the most pass-heavy in the first half on early downs with win probability between 20 and 80, excluding the final 2 minutes of the half when everyone is pass-happy:"
 
 ```{r}
-schotty <- pbp_rp %>%
+kc <- pbp %>%
   filter(wp > .20 & wp < .80 & down <= 2 & qtr <= 2 & half_seconds_remaining > 120) %>%
   group_by(posteam) %>%
   summarize(mean_pass = mean(pass), 
             plays = n()) %>%
   arrange(mean_pass)
 
-schotty
+kc
 ```
 
-"The Seahawks were playing a different sport in 2018. Fun! Let's see what that looks like:"
+"Kansas City led the league in passing rate 2019. Fun! Let's see what that looks like:"
 
 ```{r}
-ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
-	    geom_text(aes(label = posteam))
+ggplot(kc, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+  geom_text(aes(label = posteam))
 ```
 
 Now this is a useful plot, but as Ben said: 
@@ -347,7 +272,7 @@ Let's see what they look like with the same plot as above.
 - Notice that we now have grey gridlines, a black border, and a white background.  
 
 ```{r, echo = FALSE}
-ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+ggplot(kc, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_bw()
 ```
@@ -356,7 +281,7 @@ ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
 - Notice that we still have grey gridlines, a white background, but now no black border.  
 
 ```{r, echo = FALSE}
-ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+ggplot(kc, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_minimal()
 ```
@@ -366,7 +291,7 @@ ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
 - Notice that we now have NO gridlines, a half black border, and the same white background.  
 
 ```{r, echo = FALSE}
-ggplot(schotty, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
+ggplot(kc, aes(x = reorder(posteam,-mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_classic()
 ```
@@ -387,7 +312,7 @@ The [`ggthemes` package](https://github.com/jrnold/ggthemes) gives you a wide as
 - The difference from `theme_minimal()` is ironically, *minimal* but the main difference is heavier grey gridlines, and a subtle grey background - which aligns with the `FiveThirtyEight` style.  
 
 ```{r, echo = FALSE}
-ggplot(schotty, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
+ggplot(kc, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_fivethirtyeight()
 ```
@@ -477,7 +402,7 @@ theme_538 <- function(base_size = 12, font = "Lato") {
 Now let's see what the edited theme looks like in action!
 
 ```{r, fig.height = 10, fig.width=16, dpi = 500}
-ggplot(schotty, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
+ggplot(kc, aes(x = reorder(posteam, -mean_pass), y = mean_pass)) +
   geom_text(aes(label = posteam)) +
   theme_538()
 ```
@@ -499,14 +424,14 @@ Basic line chart = `ggplot() + geom_line()`
 
 ```{r}
 # Prepare data
-wr_duel <- pbp_rp %>%
-  filter(receiver %in% c("A.Brown", "J.Smith-Schuster")) %>%
-  group_by(game_date, receiver) %>%
+wr_duel <- pbp %>%
+  filter(receiver %in% c("C.Godwin", "M.Evans")) %>%
+  group_by(week, receiver) %>%
   summarize(mean_epa = mean(epa, na.rm = TRUE))
 
 ggplot(
   wr_duel,
-  aes(x = game_date, y = mean_epa, color = receiver)
+  aes(x = week, y = mean_epa, color = receiver)
 ) +
   geom_line(size = 1)
 ```
@@ -516,7 +441,7 @@ ggplot(
 ```{r}
 wr_duel_plot <- ggplot(
   wr_duel,
-  aes(x = game_date, y = mean_epa, color = receiver)
+  aes(x = week, y = mean_epa, color = receiver)
 ) +
   geom_line(size = 1) +
   theme_538() +
@@ -524,8 +449,8 @@ wr_duel_plot <- ggplot(
   labs(
     x = "\nGame Date",
     y = "EPA (Average)",
-    title = "Quick comparison of AB vs Juju across the 2018 season",
-    caption = "Data: @nflscrapR"
+    title = "Quick comparison of Godwin vs Evans across the 2019 season",
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 
 wr_duel_plot
@@ -539,31 +464,35 @@ But we can still improve this a lot - it feels a bit crowded, plus the red/blue 
 
 
 ```{r}
-pit_colors <- teamcolors %>% 
-  filter(name == "Pittsburgh Steelers") %>%
-  select(name:secondary)
+tb_colors <- nflfastR::teams_colors_logos %>% 
+  filter(team_abbr == "TB") 
 
-pit_colors
+tb_colors
 
-pit_primary <- pull(pit_colors, primary)
-pit_secondary <- pull(pit_colors, secondary)
+tb_primary <- pull(tb_colors, team_color)
+tb_secondary <- pull(tb_colors, team_color4)
 ```
 
 
 ### Asign the colors
 
 ```{r}
-wr_duel_plot <- ggplot(wr_duel,
-               aes(x = game_date, y = mean_epa, 
-                   color = if_else(receiver == "A.Brown", pit_primary, pit_secondary))) +
+wr_duel_plot <- wr_duel %>% 
+  ggplot(
+    aes(x = week, y = mean_epa, 
+        color = if_else(receiver == "C.Godwin", tb_primary, tb_secondary)
+        )
+    ) +
   geom_line(size = 1) +
   theme_538() +
-  geom_hline(yintercept = 0, size = 1, color = "black") +
+  geom_hline(yintercept = 0, size = 1, color = "grey") +
   labs(x = "",
        y = "EPA (Average)",
-       title = "Quick comparison of <span style='color:#000000'>**AB**</span> vs <span style='color:#ffb612'>**Juju**</span> across the 2018 season",
-       caption = "Data: @nflscrapR") +
+       title = glue::glue("Quick comparison of <span style='color:{tb_primary}'>**Godwin**</span> vs <span style='color:{tb_secondary}'>**Evans**</span> across the 2019 season"),
+       caption = "Data: @nflfastR") +
   scale_color_identity() +
+  scale_x_continuous(breaks = seq(1, 17, 1)) +
+  scale_y_continuous(breaks = seq(-1, 2, 0.5)) +
   theme(plot.title = element_markdown())
 
 wr_duel_plot
@@ -577,7 +506,7 @@ Alternatively, if you didn't want to drop a legend, you could approach it this w
 wr_duel_plot <- ggplot(
   wr_duel,
   aes(
-    x = game_date, y = mean_epa,
+    x = week, y = mean_epa,
     color = receiver
   )
 ) +
@@ -587,13 +516,15 @@ wr_duel_plot <- ggplot(
   labs(
     x = "",
     y = "EPA (Average)",
-    title = "Quick comparison of AB vs Juju across the 2018 season",
-    caption = "Data: @nflscrapR"
+    title = "Quick comparison of Godwin vs Evans across the 2019 season",
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   ) +
-  scale_color_manual(values = c(pit_primary, pit_secondary)) +
+  scale_color_manual(values = c(tb_primary, tb_secondary)) +
+  scale_x_continuous(breaks = seq(1, 17, 1)) +
+  scale_y_continuous(breaks = seq(-1, 2, 0.5)) +
   theme(
     legend.title = element_blank(),
-    legend.position = c(0.2, 0.1)
+    legend.position = "top"
   )
 
 wr_duel_plot
@@ -604,67 +535,15 @@ wr_duel_plot
 ```{r}
 wr_duel_plot +
   theme(legend.position = "none") +
-  geom_text(data = filter(wr_duel, game_date == "2018-09-09"),
-            aes(x = game_date, y = mean_epa, label = receiver),
-            hjust = 0, nudge_y = 0.1, size = 4
+  geom_text(data = filter(wr_duel, week == 2),
+            aes(x = week, y = mean_epa, label = receiver),
+            hjust = 0, nudge_x = 0.2, size = 4, fontface = "bold"
   ) +
-  geom_point(data = filter(wr_duel, game_date == "2018-09-09"), 
+  geom_point(data = filter(wr_duel, week == 2), 
              size = 3
   )
 ```
 
-### More than a linear time series
-
-You could also try out a connected line plot which lets you plot an x and y axis, then assign "time" as a 3rd variable. I find that it helps to add a connecting line, or else you may have trouble following the linear change in time.
-
-```{r}
-# Prepare data
-juju_do_it <- pbp_rp %>%
-  filter(receiver == "J.Smith-Schuster") %>%
-  arrange(desc(game_date)) %>%
-  group_by(game_date) %>%
-  summarize(
-    total_yards = sum(yards_gained, na.rm = TRUE),
-    total_airyards = sum(air_yards, na.rm = TRUE)
-  ) %>%
-  head(5) %>%
-  mutate(
-    game_num = row_number(),
-    game_text = glue::glue("Game {game_num}")
-  )
-
-ggplot(juju_do_it, aes(x = total_airyards, y = total_yards, color = game_num)) +
-  # geom path follows the order of underlying data
-  geom_path(size = 2) +
-  geom_point(size = 5) +
-  # creates a line for comparison
-  geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed") +
-  # adds labels to only game 1 and 5
-  geom_text(
-    data = filter(juju_do_it, game_num %in% c(1, 5)),
-    aes(label = game_text),
-    hjust = 1, nudge_x = -5
-  ) +
-  # set scales for 0-axis
-  scale_x_continuous(limits = c(0, 140)) +
-  scale_y_continuous(limits = c(0, 140)) +
-  # change color gradient to start at black and transition to yellow
-  scale_color_gradient(low = pit_primary, high = pit_secondary) +
-  theme_538() +
-  labs(
-    x = "\nTotal Air Yards",
-    y = "Total Yards\n",
-    title = "Even with his highest Air Yardage, Juju struggled in Game 4",
-    caption = "Data: @nflscrapR"
-  ) +
-  theme(legend.position = "none")
-```
-
-Notice that the above plot has a diagonal trend line that runs intersecting at 0 with a slope of 1:
-
-`geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed")`
-
-This basic call can be applied to lots of different plots to give a reference line, where you can separate plays/players/teams into above/below the line.
 
 ## Bar Charts
 
@@ -675,19 +554,21 @@ Basic forms:
 * `ggplot(aes(x = category, y = value)) + geom_col()`
 * `ggplot(aes(x = category, y = value)) + geom_bar(stat = "identity")`
 
-Column defaults to identity, essentially the single number is read as the max value. `geom_bar()` on the other hand has a bit more flexibility if you want to build stacked or segmented bar charts.
+Column defaults to plotting identity, essentially the single number is read as the max value. `geom_bar()` on the other hand has a bit more flexibility if you want to build stacked or segmented bar charts.
 
 ```{r}
-rb_trio <- pbp_rp %>%
+rb_trio <- pbp %>%
   filter(
-    posteam == "PIT",
-    receiver %in% c("J.Conner", "J.Samuels", "S.Ridley") |
-      rusher %in% c("J.Conner", "J.Samuels", "S.Ridley"),
-    play_type != "no_play"
+    posteam == "BAL",
+    receiver %in% c("M.Ingram", "M.Ingram II", "G.Edwards", "J.Hill") |
+      rusher %in%  c("M.Ingram", "M.Ingram II", "G.Edwards", "J.Hill"),
+    play_type %in% c("run", "pass")
   ) %>%
   mutate(
     # Assign a single player name for filtering regardless of play_type
     player = if_else(is.na(receiver), rusher, receiver),
+    player = if_else(str_detect(player, "Ingram"), "M.Ingram", player),
+    player = factor(player, levels = c("M.Ingram", "G.Edwards", "J.Hill")),
     # Add nice labels to play_type
     play_type = factor(play_type, labels = c("Reception", "Rush"))
   ) %>%
@@ -724,16 +605,19 @@ Now we are adding color by player and separating into small multiples or facets 
 ### Let's raise the bar
 
 ```{r}
+bal_colors <- nflfastR::teams_colors_logos %>% 
+  filter(team_abbr == "BAL")
+
 rb_trio_plot +
   geom_hline(yintercept = 0.03, color = "black", size = 2) +
   theme_538() +
-  scale_fill_manual(values = c(pit_primary, pit_secondary, "grey")) +
+  scale_fill_manual(values = c(bal_colors$team_color, bal_colors$team_color2, bal_colors$team_color3)) +
   labs(
     x = "",
     y = "Avg Yards per Play",
-    title = "Conner and Samuels were interchangeable in 2018",
-    subtitle = "Ridley is no longer on the team",
-    caption = "Data: @nflscrapR"
+    title = "Ingram was the most efficient receiver, while Edwards was more efficient rushing",
+    subtitle = "Hill was a distant third in both categories",
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   ) +
   theme(
     panel.grid.major.x = element_blank(),
@@ -742,7 +626,7 @@ rb_trio_plot +
     legend.position = "none"
   )  +
   scale_y_continuous(
-    breaks = seq(0, 6, 1)
+    breaks = seq(0, 8, 1)
   )
 ```
 
@@ -752,33 +636,33 @@ rb_trio_plot +
 rb_trio_plot +
   geom_hline(yintercept = 0, color = "black", size = 2) +
   theme_538() +
-  scale_fill_manual(values = c(pit_primary, pit_secondary, "grey")) +
+  scale_fill_manual(values = c(bal_colors$team_color, bal_colors$team_color2, bal_colors$team_color3)) +
   labs(
     x = "",
     y = "Avg Yards per Play",
-    title = "Conner and Samuels were interchangeable in 2018",
-    subtitle = "Ridley is no longer on the team",
-    caption = "Data: @nflscrapR"
+    title = "Ingram was the most efficient receiver, while Edwards was more efficient rushing",
+    subtitle = "Hill was a distant third in both categories",
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   ) +
   theme(
     panel.grid.major.x = element_blank(),
     legend.position = "none"
   ) +
   scale_y_continuous(
-    breaks = seq(0, 6, 1)
+    breaks = seq(0, 8, 1)
   )
 ```
 
 ### Flip the bar
 
 ```{r}
-epa_play <- pbp_rp %>% 
-  filter(pass == 1) %>% 
+epa_play <- pbp %>% 
+  filter(pass == 1, !is.na(posteam)) %>% 
   group_by(posteam) %>% 
   summarize(
     n = n(),
     epa_per_db = sum(epa, na.rm = TRUE) / n,
-    success_rate = sum(epa) / n
+    success_rate = sum(epa, na.rm = TRUE) / n
   )
 
 epa_play %>% 
@@ -800,7 +684,7 @@ epa_play %>%
 ```
 
 
-Yikes - that is not what we want! Instead of just swapping the x and y axes, we should have used `coord_flip()` - this will actually rotate the plot rather than change the structure.
+Note that this works perfectly in `ggplot2` version 3.2 or greater! Instead of just swapping the x and y axes, we could also have used `coord_flip()` - this will rotate the plot as well.
 
 ```{r}
 epa_play %>%
@@ -814,20 +698,19 @@ Now this is more readable, clearly arranged by the strong passing vs weak passin
 
 ```{r}
 epa_play %>%
-  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  ggplot(aes(x = epa_per_db, y = reorder(posteam, epa_per_db))) +
   geom_col(aes(fill = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"))) +
-  coord_flip() +
   scale_fill_identity() +
   theme_538() +
   theme(panel.grid.major.y = element_blank()) +
   geom_hline(yintercept = 0) +
-  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  scale_x_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
   labs(
     x = "",
     y = "EPA per Dropback",
     title = "The majority of teams had positive EPA/dropback",
     subtitle = "But there are some clear outliers",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -843,25 +726,24 @@ Basic form:
 
 ```{r}
 epa_play %>%
-  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  ggplot(aes(x = epa_per_db, y = reorder(posteam, epa_per_db))) +
   geom_col(aes(fill = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")),
     width = 0.2
   ) +
   geom_point(aes(color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")),
     size = 5
   ) +
-  coord_flip() +
   scale_fill_identity(aesthetics = c("fill", "colour")) +
   theme_538() +
   theme(panel.grid.major.y = element_blank()) +
   geom_hline(yintercept = 0) +
-  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  scale_x_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
   labs(
     x = "",
     y = "EPA per Dropback",
     title = "The majority of teams had positive EPA/dropback",
     subtitle = "But there are some clear outliers",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -869,14 +751,15 @@ epa_play %>%
 
 ```{r}
 epa_play %>%
-  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  ggplot(aes(x = epa_per_db, y = reorder(posteam, epa_per_db))) +
   geom_col(aes(fill = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"))) +
   geom_text(aes(
     label = posteam,
     color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"),
     hjust = if_else(epa_per_db > 0, -0.1, 1.1)
-  )) +
-  coord_flip() +
+    ),
+    fontface = "bold"
+  ) +
   scale_fill_identity(aesthetics = c("fill", "colour")) +
   theme_538() +
   theme(
@@ -884,13 +767,13 @@ epa_play %>%
     axis.text.y = element_blank()
   ) +
   geom_hline(yintercept = 0) +
-  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  scale_x_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
   labs(
     x = "",
     y = "EPA per Dropback",
     title = "The majority of teams had positive EPA/dropback",
     subtitle = "But there are some clear outliers",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -898,16 +781,17 @@ epa_play %>%
 
 ```{r}
 epa_play %>%
-  ggplot(aes(x = reorder(posteam, epa_per_db), y = epa_per_db)) +
+  ggplot(aes(x = epa_per_db, y = reorder(posteam, epa_per_db))) +
   geom_point(aes(color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")),
     size = 3
   ) +
   geom_text(aes(
     label = posteam,
-    color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c"),
-    hjust = if_else(epa_per_db > 0, -0.2, 1.2)
-  )) +
-  coord_flip() +
+    color = if_else(epa_per_db >= 0, "#2c7bb6", "#d7181c")
+    ),
+    nudge_x = if_else(epa_play$epa_per_db > 0, 0.02, -0.02),
+    fontface = "bold"
+  ) +
   scale_fill_identity(aesthetics = c("fill", "colour")) +
   theme_538() +
   theme(
@@ -915,58 +799,93 @@ epa_play %>%
     axis.text.y = element_blank()
   ) +
   geom_hline(yintercept = 0) +
-  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  scale_x_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
   labs(
     x = "",
     y = "EPA per Dropback",
     title = "The majority of teams had positive EPA/dropback",
     subtitle = "But there are some clear outliers",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
 In this case, the Y-axis is essentially rank - you could also revert back to just doing this as team logos or adding another variable on the y-axis. This plot is ink efficient, but also has a LOT of unused white space as a result. As such, I don't think it is a "great" plot.
 
-## Scatter plots
 
-Back to stealing from Ben - who has done a great job generating interesting scatter plots. Let's do his cleanup and then some viz. Step 1 cleans up player names and is verbatim copied from his repo.
+### Team Logo Instead
+
+You can use the `ggimage` package to plot team logos. Note that for many plots you'll want to explicitly use an aspect ratio to prevent the logos from getting skewed. Note that I'm defining the `asp_ratio` first, and then using it in both `geom_image()` and in `theme()`.
+
+```
+geom_image(aes(image = team_logo_wikipedia), size = 0.035, by = "width", asp = asp_ratio)
+```
+
+```
+# Inverted asp_ratio used in theme
+# this may be necessary on windows
+
+aspect.ratio = 1/asp_ratio
+```
 
 ```{r}
-pbp_players <- pbp_rp %>%
-  mutate(
-    passer_player_name = ifelse(play_type == "no_play" & pass == 1,
-      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((pass)|(sack)|(scramble)))"),
-      passer_player_name
-    ),
-    receiver_player_name = ifelse(play_type == "no_play" & str_detect(desc, "pass"),
-      str_extract(
-        desc,
-        "(?<=to\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?"
-      ),
-      receiver_player_name
-    ),
-    rusher_player_name = ifelse(play_type == "no_play" & rush == 1,
-      str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((left end)|(left tackle)|(left guard)|		(up the middle)|(right guard)|(right tackle)|(right end)))"),
-      rusher_player_name
-    )
+library(ggimage)
+asp_ratio <- 1.618
+
+epa_logos <- epa_play %>%
+  left_join(nflfastR::teams_colors_logos, by = c("posteam" = "team_abbr")) %>% 
+  ggplot(aes(x = epa_per_db, y = reorder(posteam, epa_per_db))) +
+  geom_image(aes(image = team_logo_wikipedia), size = 0.035, by = "width", asp = asp_ratio) +
+  scale_fill_identity(aesthetics = c("fill", "colour")) +
+  theme_538() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_blank(),
+    aspect.ratio = 1/asp_ratio
+  ) +
+  geom_hline(yintercept = 0) +
+  scale_x_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  labs(
+    x = "",
+    y = "EPA per Dropback",
+    title = "The majority of teams had positive EPA/dropback",
+    subtitle = "But there are some clear outliers",
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
+
+epa_logos
 ```
+
+When you go to save, make sure to also use the aspect ratio here.
+
+```{r}
+asp_ratio <- 1.618
+width <- 10
+
+ggsave("logo_plot_asp.png", epa_logos, width = width, height = width/asp_ratio, dpi = "retina")
+
+# load the saved image back into our RMarkdown doc
+knitr::include_graphics("logo_plot_asp.png")
+```
+
+
+## Scatter plots
+
+Back to stealing from Ben - who has done a great job generating interesting scatter plots.
 
 Step 2 generates our summary dataframe with a few plays of interest. ALWAYS remember to add an `ungroup()` as otherwise the grouped assignment lives on in the dataset.
 
 ```{r}
-qbs <- pbp_players %>%
-  mutate(
-    name = ifelse(!is.na(passer_player_name), passer_player_name, rusher_player_name),
-    rusher = rusher_player_name,
-    receiver = receiver_player_name,
-    play = 1
-  ) %>%
+qbs <- pbp %>%
+  filter(
+    play_type %in% c("pass", "run"),
+    penalty == 0,
+    !is.na(epa)
+    ) %>% 
   group_by(name, posteam) %>%
   summarize(
     n_dropbacks = sum(pass),
     n_rush = sum(rush),
-    n_plays = sum(play),
+    n_plays = n(),
     epa_per_play = sum(epa) / n_plays,
     success_per_play = sum(success) / n_plays
   ) %>%
@@ -988,7 +907,7 @@ qb_success_rate <- qbs %>%
        y = "EPA per play",
        caption = "Data from nflscrapR",
        title = "QB success rate and EPA/play",
-       subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays") +
+       subtitle = "2019, min 100 pass attempts, includes all QB's rush and pass plays") +
   theme_bw() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10),
@@ -1058,7 +977,7 @@ qbs %>%
   # Notice that color/size inside aes()
   geom_point(
     aes(
-      color = if_else(posteam == "SF", "red", "black"),
+      color = if_else(posteam == "NO", "gold", "black"),
       size = n_plays / 60
     ),
     alpha = 0.50
@@ -1070,7 +989,7 @@ qbs %>%
     y = "EPA per play",
     caption = "Data from nflscrapR",
     title = "QB success rate and EPA/play",
-    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+    subtitle = "2019, min 100 pass attempts, includes all QB's rush and pass plays"
   ) +
   theme_bw() +
   theme(
@@ -1091,12 +1010,12 @@ We can then add nice labels to ALL the players via `ggrepel` which automatically
 qbs %>%
   ggplot(aes(x = success_per_play, y = epa_per_play)) +
   # Notice that color/size inside aes()
-  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays / 60), alpha = 0.50) +
+  geom_point(aes(color = if_else(posteam == "NO", "gold", "black"), size = n_plays / 60), alpha = 0.50) +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
 
   # add labels for all players
-  geom_text_repel(aes(label = name, color = if_else(posteam == "SF", "red", "black")),
+  geom_text_repel(aes(label = name, color = if_else(posteam == "NO", "#9f8958", "black")),
     force = 1, point.padding = 0.1,
     segment.size = 0.2
   ) +
@@ -1105,7 +1024,7 @@ qbs %>%
     y = "EPA per play",
     caption = "Data from nflscrapR",
     title = "QB success rate and EPA/play",
-    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+    subtitle = "2019, min 100 pass attempts, includes all QB's rush and pass plays"
   ) +
   theme_bw() +
   theme(
@@ -1120,20 +1039,20 @@ qbs %>%
 
 #### Filter labels
 
-But that's a LOT of names that we aren't interested in if we want to talk about just the San Francisco QBs.
+But that's a LOT of names that we aren't interested in if we want to talk about just the New Orleans QBs.
 
 ```{r}
 qbs %>%
   ggplot(aes(x = success_per_play, y = epa_per_play)) +
   # Notice that color/size inside aes()
-  geom_point(aes(color = if_else(posteam == "SF", "red", "black"), size = n_plays / 60), alpha = 0.50) +
+  geom_point(aes(color = if_else(posteam == "NO", "gold", "black"), size = n_plays / 60), alpha = 0.50) +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
 
   # add labels JUST for SF
   geom_text_repel(
-    data = filter(qbs, posteam == "SF"),
-    aes(label = name), color = "red",
+    data = filter(qbs, posteam == "NO"),
+    aes(label = name), color = "#9f8958",
     force = 1, point.padding = 0.1,
     segment.size = 0.2
   ) +
@@ -1142,7 +1061,7 @@ qbs %>%
     y = "EPA per play",
     caption = "Data from nflscrapR",
     title = "QB success rate and EPA/play",
-    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+    subtitle = "2019, min 100 pass attempts, includes all QB's rush and pass plays"
   ) +
   theme_bw() +
   theme(
@@ -1165,27 +1084,29 @@ qbs %>%
   ggplot(aes(x = success_per_play, y = epa_per_play)) +
   # Notice that color/size inside aes()
   geom_point(aes(
-    color = if_else(posteam == "SF", "red", "black"),
+    color = if_else(posteam == "NO", "#9f8958", "black"),
     size = n_plays / 60
   ),
   alpha = 0.50
   ) +
+  geom_hline(yintercept = qb_epa_per_play, color = "red", linetype = "dashed") +
+  geom_vline(xintercept = qb_success_per_play, color = "red", linetype = "dashed") +
   # we need this to assign red/black to the actual color
   scale_color_identity() +
-  # add labels JUST for Mullens/Garoppolo with ggforce
+  # add labels JUST for NO with ggforce
   geom_mark_hull(
     aes(
-      filter = name %in% c("J.Garoppolo", "N.Mullens"),
-      description = "Mullens + Garoppolo performed similarly in 2018"
+      filter = name %in% c("T.Bridgewater", "D.Brees"),
+      description = "Bridgewater + Brees both performed well in 2019, but Brees had a much higher success rate"
     ),
-    color = "red", label.fontface = "bold", label.colour = "red", con.colour = "red"
+    color = "#9f8958", label.fontface = "bold", label.colour = "#9f8958", con.colour = "#9f8958"
   ) +
   labs(
     x = "Success rate",
     y = "EPA per play",
-    caption = "Data from nflscrapR",
+    caption = "Data from nflfastR | Plot: @thomas_mock",
     title = "QB success rate and EPA/play",
-    subtitle = "2018, min 100 pass attempts, includes all QB's rush and pass plays"
+    subtitle = "2019, min 100 pass attempts, includes all QB's rush and pass plays"
   ) +
   theme_bw() +
   theme(
@@ -1195,7 +1116,7 @@ qbs %>%
     plot.subtitle = element_text(size = 14, hjust = 0.5),
     plot.caption = element_text(size = 12)
   ) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") 
 ```
 
 
@@ -1205,53 +1126,13 @@ Let's take Ben's other example of effectiveness when targeting RBs in passing pl
 
 We will join the play by play data with the roster data to slice by position.
 
-```{r}
+New roster data at : https://github.com/guga31bb/nflfastR-data/tree/master/roster-data
+
+```{r, warning=FALSE, message=FALSE}
 # get from tutorial
-rosters <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/roster_data/regular_season/reg_roster_2018.csv") %>%
-  filter(position %in% c("WR", "RB", "FB", "TE"), season == 2018) %>% 
-  mutate(name = abbr_player_name, posteam = team) %>%
-  select(season, name, posteam, position)
-
-```
-
-```{r, eval = F, echo =F}
-
-# get from tutorial
-data <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master/play_by_play_data/regular_season/reg_pbp_2018.csv") %>% 
-  # grab only penalties, pass, and run plays
-  filter(!is.na(epa), play_type == "no_play" | play_type == "pass" | play_type == "run") %>%
-  # create pass, rush and success columns
-  mutate(
-    pass = if_else(str_detect(desc, "(pass)|(sacked)|(scramble)"), 1, 0),
-    rush = if_else(str_detect(desc, "(left end)|(left tackle)|(left guard)|(up the middle)|(right guard)|(right tackle)|(right end)") & pass == 0, 1, 0),
-    success = ifelse(epa > 0, 1, 0)
-  ) %>%
-  # filter to only pass or rush plays
-  filter(pass == 1 | rush == 1) %>%
-  mutate(
-    passer_player_name = ifelse(play_type == "no_play" & pass == 1,
-                                str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((pass)|(sack)|(scramble)))"),
-                                passer_player_name
-    ),
-    receiver_player_name = ifelse(play_type == "no_play" & str_detect(desc, "pass"),
-                                  str_extract(
-                                    desc,
-                                    "(?<=to\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?"
-                                  ),
-                                  receiver_player_name
-    ),
-    rusher_player_name = ifelse(play_type == "no_play" & rush == 1,
-                                str_extract(desc, "(?<=\\s)[A-Z][a-z]*\\.\\s?[A-Z][A-z]+(\\s(I{2,3})|(IV))?(?=\\s((left end)|(left tackle)|(left guard)|		(up the middle)|(right guard)|(right tackle)|(right end)))"),
-                                rusher_player_name
-    )
-  ) %>%
-  mutate(
-    name = if_else(!is.na(passer_player_name), passer_player_name, rusher_player_name),
-    rusher = rusher_player_name,
-    receiver = receiver_player_name,
-    play = 1
-  )
-  
+rosters <- read_csv("https://raw.githubusercontent.com/guga31bb/nflfastR-data/master/roster-data/roster.csv") %>%
+  filter(teamPlayers.position %in% c("QB", "WR", "RB", "FB", "TE"), team.season == 2019) %>% 
+  select(position = teamPlayers.position, receiver_jersey_number = teamPlayers.jerseyNumber, posteam = team.abbr)
 ```
 
 #### Join to add position
@@ -1259,44 +1140,19 @@ data <- read_csv("https://raw.githubusercontent.com/ryurko/nflscrapR-data/master
 We can now clean up the data a bit and add the positional data with a `left_join()`. Ben was also nice enough to share a lot of players that had problematic names, so we can manually assign their position with an `if_else`.
 
 ```{r}
-data_clean <- pbp_rp %>%
-  filter(pass == 1 & sack == 0 & qb_scramble == 0) %>%
+data_clean <- pbp %>%
+  filter(pass == 1 & sack == 0 & qb_scramble == 0, !is.na(receiver_jersey_number)) %>%
   select(
     name, pass, desc, posteam, epa, defteam, complete_pass, incomplete_pass,
-    air_yards, receiver_player_name, down, success, complete_pass
+    air_yards, receiver_player_name, receiver_jersey_number, down, success, complete_pass
   ) %>%
-  left_join(rosters, by = c("receiver_player_name" = "name", "posteam")) %>%
-  mutate(
-    qb = ifelse(is.na(position), 0, 1), rec = receiver_player_name,
-    drop = if_else(str_detect(desc, "(sacked)|(scramble)"), 1, 0)
-  ) %>%
-  filter(drop == 0)
+  left_join(rosters, by = c("receiver_jersey_number", "posteam")) %>% 
+  filter(!is.na(position)) %>% 
+  mutate(position = if_else(position == "FB", "RB", position))
 
-problem_wrs <- c(
-  "K.Benjamin", "A.Cooper", "G.Tate", "A.Robinson", "B.Marshall",
-  "D.Hilliard", "D.Thompson", "De.Thomas", "E.St", "K.Benjamin", "K.Bibbs",
-  "Ty.Williams", "W.Snead", "W.Snead IV", "T.Pryor", "E.St. Brown",
-  "A.Robinson II", "J.Gordon", "D.Carter", "B.Ellington",
-  "A.Holmes", "R.Matthews", "M.Valdes", "V.Bolden"
-)
-
-problem_rbs <- c(
-  "A.Abdullah", "C.Hyde", "Dam.", "T.Montgomery", "A.Ekeler", "T.Yeldon",
-  "Dam. Williams", "Dar.Williams", "R.Jones II", "C.Anderson"
-)
-
-# fix a bunch of problem players
 pos <- data_clean %>%
-  mutate(
-    position = if_else(
-      rec %in% problem_wrs, "WR", position
-    ),
-    position = if_else(
-      rec %in% problem_rbs, "RB", position
-    ),
-    position = if_else(position == "FB", "RB", position)
-  ) %>%
-  filter(!is.na(position), down <= 2)
+  filter(position != "QB") %>% 
+  mutate(position = factor(position, levels = c("WR", "RB", "TE")))
 ```
 
 #### First try at Air Yards vs EPA
@@ -1317,6 +1173,7 @@ Let's start making this more meaningful and try for the comparison of RB vs WR v
 
 ```{r}
 pos %>%
+  filter(position != "QB") %>% 
   mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>%
   filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
@@ -1331,8 +1188,7 @@ We see that WRs and TEs clearly get thrown more deep balls, where RB passes are 
 We add a color by position and make the points mostly transparent so we can see the stacking of points at each depth. However, we don't need two legends for position and we have more improvements to be made.
 
 ```{r}
-pos %>%
-  mutate(position = factor(position, levels = c("WR", "RB", "TE"))) %>%
+pos %>% 
   filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
@@ -1345,7 +1201,6 @@ We can add median points at each yard by using `stat_summary()`, this allows us 
 
 ```{r}
 pos %>%
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
   filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
@@ -1368,7 +1223,6 @@ We also:
 
 ```{r}
 pos %>%
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
   filter(between(air_yards, 1, 25)) %>%
   ggplot(aes(x = air_yards, y = epa, fill = position)) +
   geom_point(aes(group = air_yards), shape = 21, alpha = 0.2) +
@@ -1392,7 +1246,7 @@ pos %>%
     y = "EPA\n",
     title = "WR and TE EPA generally increases by depth of target",
     subtitle = "However, RBs generally don't get targeted at these distances!\n\nPasses = 1st/2nd, Air Yards between 1 and 25",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 
 ```
@@ -1409,7 +1263,6 @@ Rather than using stat_summary, you could also create either a summary dataframe
 
 ```{r}
 pos %>%
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
   filter(between(air_yards, 1, 25)) %>%
   group_by(position, air_yards) %>% 
   mutate(n = n(),
@@ -1437,7 +1290,7 @@ pos %>%
     y = "EPA\n",
     title = "WR and TE EPA generally increases by depth of target",
     subtitle = "However, RBs generally don't get targeted at these distances!\n\nPasses = 1st/2nd, Air Yards between 1 and 25",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -1461,7 +1314,6 @@ We can summarize the completion rate by air yards and position through the below
 
 ```{r}
 pass_comp <- pos %>%
-  mutate(position = factor(position, levels = c("WR", "TE", "RB"))) %>%
   filter(between(air_yards, 1, 25)) %>%
   group_by(position, air_yards) %>%
   summarize(
@@ -1495,7 +1347,7 @@ pass_comp_plot <- pass_comp %>%
     y = "EPA\n",
     title = "Completion rate by Depth of Target on 1st/2nd Down",
     subtitle = "Completion rate generally drops below 50% for passes > 20 air yards",
-    caption = "Graph: @thomas_mock | Data: @nflscrapR",
+    caption = "Graph: @thomas_mock | Data: @nflfastR | Plot: @thomas_mock",
     size = "N of Passes"
   ) +
   theme(strip.text = element_text(face = "bold"))
@@ -1544,16 +1396,16 @@ Basic form:
 Let's take a look at KC and SEA, teams with very different approaches to their offenses.
 
 ```{r}
-sea_color <- teamcolors %>%
-  filter(name == "Seattle Seahawks") %>%
-  pull(primary)
+sea_color <- nflfastR::teams_colors_logos %>%
+  filter(team_abbr == "SEA") %>%
+  pull(team_color)
 
-kc_color <- teamcolors %>%
-  filter(name == "Kansas City Chiefs") %>%
-  pull(primary)
+kc_color <- nflfastR::teams_colors_logos %>%
+  filter(team_abbr == "KC") %>%
+  pull(team_color)
 
-pbp_rp %>%
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
+pbp %>%
+  filter(play_type %in% c("run", "pass"), posteam %in% c("SEA", "KC")) %>%
   group_by(posteam, play_type) %>%
   summarize(n = n()) %>%
   mutate(freq = n / sum(n))
@@ -1564,8 +1416,8 @@ So KC threw the ball almost 62% of the time, while Sea only threw the ball about
 But what does the distribution of throws look like between KC and SEA?
 
 ```{r}
-pbp_rp %>%
-  filter(play_type == "pass") %>%
+pbp %>%
+  filter(play_type == "pass", !is.na(air_yards)) %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, fill = posteam)) +
   geom_histogram(binwidth = 2)
@@ -1574,24 +1426,28 @@ pbp_rp %>%
 The basic histogram is "fine" but let's spruce it up a bit! We can add our theme, the team colors, and some better labels.
 
 ```{r}
-pbp_rp %>%
-  filter(play_type == "pass") %>%
+pbp %>%
+  filter(play_type == "pass", !is.na(air_yards)) %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, fill = posteam)) +
   geom_histogram(binwidth = 2, alpha = 0.9) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   geom_hline(yintercept = 0, size = 1) +
   theme_538() +
-  theme(
-    legend.title = element_blank(),
-    legend.position = c(0.6, 0.9)
-  ) +
+  guides(
+    fill = guide_legend(
+      label = TRUE, title = "", label.position = "left",
+      direction = "vertical",
+      label.theme = element_text(size = 20)
+      )
+    ) +
+  theme(legend.position = c(0.5, 0.9)) +
   scale_x_continuous(breaks = seq(-10, 60, 10)) +
   labs(
     x = "\nAir Yards",
     y = "Count",
     title = "KC threw more passes at all ranges",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -1607,39 +1463,47 @@ Basic form:
 
 
 ```{r}
-pbp_rp %>%
-  filter(play_type == "pass") %>%
+pbp %>%
+  filter(play_type == "pass", !is.na(air_yards)) %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, fill = posteam)) +
   geom_density(alpha = 0.8) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   theme_538() +
-  theme(
-    legend.title = element_blank(),
-    legend.position = c(0.6, 0.9)
-  ) +
+  guides(
+    fill = guide_legend(
+      label = TRUE, title = "", label.position = "left",
+      direction = "vertical",
+      label.theme = element_text(size = 20)
+      )
+    ) +
+  theme(legend.position = c(0.5, 0.9)) +
   scale_x_continuous(breaks = seq(-10, 60, 10))
 ```
 
 An important point - I try not to focus on the Y axis for either histogram/density plots as we are looking at the distribution itself rather than specific numbers. You can scale out the y-axis in a few ways for density plots, which I'll demonstrate below.
 
 ```{r}
-pbp_rp %>%
+pbp %>%
   filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, y = ..scaled.., fill = posteam)) +
   geom_density(alpha = 0.8) +
   scale_fill_manual(values = c(kc_color, sea_color)) +
   theme_538() +
-  theme(
-    legend.title = element_blank(),
-    legend.position = c(0.6, 0.9)
-  ) +
+  guides(
+    fill = guide_legend(
+      label = TRUE, title = "", label.position = "left",
+      direction = "vertical",
+      label.theme = element_text(size = 20)
+      )
+    ) +
+  theme(legend.position = c(0.5, 0.9)) +
   scale_x_continuous(breaks = seq(-10, 60, 10))
 ```
 
 
-Interestingly though, we see that KC and SEA essentially attacked the field in the same way, BUT SEA threw so many fewer passes which was captured in the histogram.
+Interestingly though, we see that SEA actually attempted mid-length passes (7-15 airyards) and deep passes (20-35 airyards) at a higher rate, BUT SEA threw so many fewer passes which was captured in the histogram.
 
 #### Ridge plots
 
@@ -1651,7 +1515,7 @@ Basic form:
   * Notice now we assign a group/category to Y axis
 
 ```{r}
-pbp_rp %>%
+pbp %>%
   filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = air_yards, y = posteam, fill = posteam)) +
@@ -1667,7 +1531,7 @@ pbp_rp %>%
     x = "Air Yards",
     y = "",
     title = "SEA and KC pass to similar depths of the field",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -1681,7 +1545,7 @@ Basic form:
 * `ggplot(aes(x = category, y = value)) + geom_boxplot()`
 
 ```{r}
-pbp_rp %>%
+pbp %>%
   filter(play_type == "pass") %>%
   filter(posteam %in% c("SEA", "KC")) %>%
   ggplot(aes(x = posteam, y = air_yards, fill = posteam)) +
@@ -1693,8 +1557,8 @@ pbp_rp %>%
 ```
 
 ```{r}
-pbp_rp %>%
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>% 
+pbp %>%
+  filter(play_type %in% c("run", "pass"), posteam %in% c("SEA", "KC")) %>% 
   ggplot(aes(x = play_type, y = epa , fill = play_type)) +
   geom_boxplot() +
   geom_jitter(width = 0.3, alpha = 0.1) +
@@ -1706,15 +1570,15 @@ pbp_rp %>%
 
 ### Sina plot
 
-`geom_sina()` from the `ggforce` package is an alternative to the above wokflow, and is somewhat similar to a vertical `geom_density()`
+`geom_sina()` from the `ggforce` package is an alternative to the above workflow, and is somewhat similar to a vertical `geom_density()`
 
 Basic form:  
 
 * `ggplot(aes(x = category, y = value)) + geom_sina()`
 
 ```{r}
-pbp_rp %>%
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
+pbp %>%
+  filter(play_type %in% c("run", "pass"), posteam %in% c("SEA", "KC")) %>% 
   ggplot(aes(x = play_type, y = epa, color = posteam)) +
   geom_sina(alpha = 0.5) +
   scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
@@ -1723,46 +1587,39 @@ pbp_rp %>%
   facet_grid(~posteam)
 ```
 
-### Beeswarm
 
-`geom_beeswarm()` from the `ggbeeswarm` package is an alternative to the above wokflow, but is almost identical to `geom_sina()` in its basic form.
+### 2D Density Plots
 
-Basic form:  
+A much longer form example and deeper dive can be found on my blog at [The MockUp Blog](https://themockup.blog/posts/2020-08-28-heatmaps-in-ggplot2/).  
 
-* `ggplot(aes(x = category, y = value)) + geom_beeswarm()`  
+```{r, warning=FALSE, message=FALSE}
+souce_url <- "https://raw.githubusercontent.com/ArrowheadAnalytics/next-gen-scrapy-2.0/master/pass_and_game_data.csv"
 
+pass_map_df <- read_csv(souce_url) %>%
+  na.omit() %>%
+  select(-X1)
 
-```{r, eval = FALSE}
-library(ggbeeswarm)
+glimpse(pass_map_df)
 ```
+
+We could always use larger bins, but if we’re just trying to see large trends we have another strategy in geom_density_2d().
+
+Perform a 2D kernel density estimation using MASS::kde2d() and display the results with contours. This can be useful for dealing with overplotting. This is a 2D version of geom_density(). geom_density_2d() draws contour lines, and geom_density_2d_filled() draws filled contour bands.
 
 ```{r}
-pbp_rp %>%
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
-  ggplot(
-    aes(x = play_type, y = epa, color = posteam)
+pass_map_df %>%
+  filter(str_detect(name, c("Mahomes|Derek Carr"))) %>%
+  ggplot(aes(x = x_coord, y = y_coord)) +
+  geom_density_2d_filled(
+    aes(fill = ..level..),
+    contour_var = "ndensity", # normalize to each QBs total passes
+    breaks = seq(0.1, 1.0, length.out = 10) # drop the lowest passes
   ) +
-  geom_beeswarm(alpha = 0.5) +
-  scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
-  theme_538() +
-  theme(legend.position = "none") +
-  facet_grid(~posteam)
+  scale_y_continuous(breaks = seq(-10, 60, 5)) +
+  facet_wrap(~name) +
+  geom_hline(yintercept = 5)
 ```
 
-Importantly, although this looks very similar to the `geom_sina()` plots, you have more options about customizing the "swarming".
-
-```{r}
-pbp_rp %>%
-  filter(play_type != "no_play", posteam %in% c("SEA", "KC")) %>%
-  ggplot(
-    aes(x = play_type, y = epa, color = posteam)
-  ) +
-  geom_beeswarm(priority = "random", alpha = 0.5, size = 0.5) +
-  scale_fill_manual(values = c(kc_color, sea_color), aesthetics = c("fill", "color")) +
-  theme_538() +
-  theme(legend.position = "none") +
-  facet_grid(~posteam)
-```
 
 ## Miscellaneous Plots
 
@@ -1776,14 +1633,14 @@ Basic form:
 * `ggplot(aes(x = value, y = category, group = group)) + geom_line() + geom_point() + coord_flip()`
 
 ```{r}
-rush_v_pass <- pbp_rp %>% 
-  filter(play_type != "no_play", penalty == 0) %>% 
+rush_v_pass <- pbp %>% 
+  filter(play_type %in% c("run", "pass"), penalty == 0) %>% 
   group_by(play_type, posteam) %>% 
   summarize(avg_yds = mean(yards_gained, na.rm = TRUE)) %>% 
   ungroup()
 
-nfl_rvp <- pbp_rp %>% 
-  filter(play_type != "no_play") %>% 
+nfl_rvp <- pbp %>% 
+  filter(play_type %in% c("run", "pass"), penalty == 0) %>% 
   group_by(play_type) %>% 
   summarize(avg_yds = mean(yards_gained, na.rm = TRUE)) %>% 
   ungroup() %>% 
@@ -1814,12 +1671,12 @@ rush_v_pass %>%
   geom_line(aes(group = posteam), color = "grey", size = 3) +
   geom_point(size = 5) +
   geom_text(
-    data = filter(rush_v_pass, posteam == "KC" & play_type == "Pass"),
+    data = filter(rush_v_pass, posteam == "NFL" & play_type == "Pass"),
     aes(label = play_type),
     hjust = 0, nudge_y = 0.2, fontface = "bold", size = 6
   ) +
   geom_text(
-    data = filter(rush_v_pass, posteam == "KC" & play_type == "Rush"),
+    data = filter(rush_v_pass, posteam == "NFL" & play_type == "Rush"),
     aes(label = play_type),
     hjust = 1, nudge_y = -0.2, fontface = "bold", size = 6
   ) +
@@ -1835,7 +1692,7 @@ rush_v_pass %>%
     x = "",
     y = "\n Average Yards Gained",
     title = "Passing yards per play outperforms Rushing for all teams",
-    caption = "Data: @nflscrapR"
+    caption = "Data: @nflfastR | Plot: @thomas_mock"
   ) +
   scale_y_continuous(
     limits = c(3, 9),
@@ -1851,82 +1708,23 @@ The basic form:
 
 * `ggplot(aes(x = time, y = value, group = group)) + geom_line() + geom_point()`
 
-This demo takes a bit of prep, you could skip this simply by using `game_date` instead of `game_week`, but I think it's a useful code-chunk for you to have in the boolbox.
-
-* `case_when()` is essentially a switch or a combination of `if_else()` statements.  
-
-We can use it to have a bunch of arguments where you can match some argument and then output something specific. Here we are checking if the `game_date` is between the two dates for that week's games and then assigning `game_week` of the season.
-
-```{r, eval = F, echo = F}
-get_game_wk <- function(game_date, start_date, end_date){
-  between({{game_date}}, as.Date(start_date), as.Date(end_date))
-}
-
-game_num <- pbp_rp %>% 
-  mutate(game_week = case_when(
-    get_game_wk(game_date, "2018-09-05", "2018-09-11") ~ 1,
-    get_game_wk(game_date, "2018-09-12", "2018-09-18") ~ 2,
-    get_game_wk(game_date, "2018-09-19", "2018-09-25") ~ 3,
-    get_game_wk(game_date, "2018-09-26", "2018-10-02") ~ 4,
-    get_game_wk(game_date, "2018-10-03", "2018-10-09") ~ 5,
-    get_game_wk(game_date, "2018-10-10", "2018-10-16") ~ 6,
-    get_game_wk(game_date, "2018-10-17", "2018-10-23") ~ 7,
-    get_game_wk(game_date, "2018-10-24", "2018-10-30") ~ 8,
-    get_game_wk(game_date, "2018-10-31", "2018-11-06") ~ 9,
-    get_game_wk(game_date, "2018-11-07", "2018-11-13") ~ 10,
-    get_game_wk(game_date, "2018-11-14", "2018-11-20") ~ 11,
-    get_game_wk(game_date, "2018-11-21", "2018-11-27") ~ 12,
-    get_game_wk(game_date, "2018-11-28", "2018-12-04") ~ 13,
-    get_game_wk(game_date, "2018-12-05", "2018-12-11") ~ 14,
-    get_game_wk(game_date, "2018-12-12", "2018-12-18") ~ 15,
-    get_game_wk(game_date, "2018-12-19", "2018-12-25") ~ 16,
-    get_game_wk(game_date, "2018-12-30", "2019-01-01") ~ 17,
-    TRUE ~ 99
-    )
-  ) %>% 
-  filter(game_week != 99)
-```
+Now we can clean up some of the factors for better printing and limit to KC, the most offensively efficient team in 2019. We'll be looking at 1st Half vs 2nd Half Runs & Passes.
 
 ```{r}
-game_num <- pbp_rp %>% 
-  mutate(game_week = case_when(
-    between(game_date, as.Date("2018-09-05"), as.Date("2018-09-11")) ~ 1,
-    between(game_date, as.Date("2018-09-12"), as.Date("2018-09-18")) ~ 2,
-    between(game_date, as.Date("2018-09-19"), as.Date("2018-09-25")) ~ 3,
-    between(game_date, as.Date("2018-09-26"), as.Date("2018-10-02")) ~ 4,
-    between(game_date, as.Date("2018-10-03"), as.Date("2018-10-09")) ~ 5,
-    between(game_date, as.Date("2018-10-10"), as.Date("2018-10-16")) ~ 6,
-    between(game_date, as.Date("2018-10-17"), as.Date("2018-10-23")) ~ 7,
-    between(game_date, as.Date("2018-10-24"), as.Date("2018-10-30")) ~ 8,
-    between(game_date, as.Date("2018-10-31"), as.Date("2018-11-06")) ~ 9,
-    between(game_date, as.Date("2018-11-07"), as.Date("2018-11-13")) ~ 10,
-    between(game_date, as.Date("2018-11-14"), as.Date("2018-11-20")) ~ 11,
-    between(game_date, as.Date("2018-11-21"), as.Date("2018-11-27")) ~ 12,
-    between(game_date, as.Date("2018-11-28"), as.Date("2018-12-04")) ~ 13,
-    between(game_date, as.Date("2018-12-05"), as.Date("2018-12-11")) ~ 14,
-    between(game_date, as.Date("2018-12-12"), as.Date("2018-12-18")) ~ 15,
-    between(game_date, as.Date("2018-12-19"), as.Date("2018-12-25")) ~ 16,
-    between(game_date, as.Date("2018-12-30"), as.Date("2019-01-01")) ~ 17,
-    TRUE ~ 99
-    )
-  ) %>% 
-  filter(game_week != 99)
-
-```
-
-Now we can clean up some of the factors for better printing and limit to KC, the most offensively efficient team in 2018. We'll be looking at 1st Half vs 2nd Half Runs & Passes.
-
-```{r}
-wk_rvp <- game_num %>%
-  filter(play_type != "no_play", game_half %in% c("Half1", "Half2")) %>%
+wk_rvp <- pbp %>%
+  filter(
+    play_type %in% c("run", "pass"), 
+    game_half %in% c("Half1", "Half2"),
+    week <= 17
+    ) %>%
   mutate(game_half = if_else(game_half == "Half1", "1st Half", "2nd Half")) %>%
-  group_by(posteam, game_half, game_week, play_type) %>%
+  group_by(posteam, game_half, week, play_type) %>%
   count() %>% 
   ungroup()
 
 kc_rvp <- wk_rvp %>% 
   filter(posteam == "KC") %>% 
-  mutate(game_num = if_else(game_week <=11, game_week, game_week - 1),
+  mutate(game_num = if_else(week <=11, week, week - 1),
          play_type = if_else(play_type == "run", "Rush", "Pass"),
          game_text = glue::glue("Game {game_num}")
          )
@@ -1934,11 +1732,22 @@ kc_rvp <- wk_rvp %>%
 kc_rvp
 ```
 
+Now we can normalize to the total number of plays in the game.
+
+```{r}
+kc_rvp_norm <- kc_rvp %>% 
+  group_by(week) %>% 
+  mutate(total = sum(n),
+         ratio = n/total)
+kc_rvp_norm
+```
+
+
 Notice that we have nice text for `game_half` and `play_type` and a `game_num` variable. Let's build the basic slope chart. You need SOME type of grouping variable as your 3rd variable eg (var1 = x, var2 = y, var3 = group).
 
 ```{r}
-kc_rvp %>% 
-  ggplot(aes(x = game_half, y = n, group = game_num)) +
+kc_rvp_norm %>% 
+  ggplot(aes(x = game_half, y = ratio, group = game_num)) +
   geom_point() +
   geom_line() +
   facet_grid(~play_type)
@@ -1949,37 +1758,41 @@ This is interesting and shows the key feature of how does the trend of 1st Half 
 However, we aren't sure which games match to fewer first-half rushes vs more second-half rushes We need to assign a color variable in our `aes()` call. But first, let's figure out the games where KC rushed more in the 1st half (aka ESTABLISH THE RUN) vs the 2nd half (REAP THE REWARDS OF ESTABLISHMENT).
 
 ```{r}
-kc_runs <- kc_rvp %>% 
+kc_runs <- kc_rvp_norm %>% 
+  select(-n, -total) %>% 
   filter(play_type == "Rush") %>% 
-  spread(game_half, n) %>%
-  mutate(balance = if_else(`1st Half` >= `2nd Half`, "Ran More in 1st", "Ran More in 2nd")) %>% 
-  gather(key = "game_half", value = "n", `1st Half`:`2nd Half`) %>% 
+  pivot_wider(names_from = game_half, values_from = ratio) %>%
+  mutate(balance = if_else(`1st Half` <= `2nd Half`, "Ran More in 2nd", "Ran More in 1st")) %>% 
+  ungroup() %>% 
+  pivot_longer(names_to = "game_half", values_to = "ratio", cols = c(`1st Half`:`2nd Half`)) %>% 
   select(posteam, game_num,game_half, balance)
 
 kc_runs 
 ```
 
 ```{r}
-kc_runs %>% 
-  filter(balance == "Ran More in 1st") %>% 
-  distinct(game_num)
+kc_games <- kc_runs %>% 
+  filter(balance == "Ran More in 2nd") %>% 
+  distinct(game_num) %>% pull()
+
+kc_games
 ```
 
-So games 3, 4, 11 and 15 were the only games were they ran more or equal amounts in the 1st Half than the 2nd Half. Fun fact - KC went 12-4 last season, and went 2-2 in the games where they ran equally or more in the 1st Half than the 2nd Half.
+So games `r paste(c(kc_games[-length(kc_games)], "and", kc_games[length(kc_games)]), collapse = ", ")` were the only games were they ran more or equal amounts in the 1st Half than the 2nd Half. Fun fact - KC went 12-4 last season, and went 3-3 in the games where they ran equally or more in the 1st Half than the 2nd Half.
 
 ```{r}
-kc_rvp %>%
+kc_rvp_norm %>%
   ggplot(
     aes(
-      x = game_half, y = n, group = game_week, 
-      color = if_else(game_num %in% c(3, 4, 11, 15), "red", "blue")
+      x = game_half, y = ratio, group = week, 
+      color = if_else(game_num %in% kc_games, "red", "blue")
     )
   ) +
   geom_point() +
   geom_line() +
   geom_text_repel(
     data = filter(
-      kc_rvp, game_num %in% c(3, 4, 11, 15),
+      kc_rvp_norm, game_num %in% kc_games,
       game_half == "2nd Half"
     ),
     aes(label = game_num)
@@ -1988,14 +1801,14 @@ kc_rvp %>%
   scale_color_identity()
 ```
 
-Ok now we can see that in 3/4 of the ONLY games where they "established" the run in the 1st half they ended up passing dramatically more in the 2nd half (4, 11, 15). Let's add some more context and details.
+Now we have a nice comparison of pass vs run tendency by game in the 1st vs 2nd half. We also have assigned color to games where rush tendency was greater in the 2nd half vs the 1st. The note here is that while I'm describing the run-pass frequency for the purpose of this chart - note that run tendency is typically a side-effect of game-script. Which is that most teams who have a lead are likely to run more in an effort to consume clock, rather than being efficient.
 
 ```{r, fig.width= 10, fight.height =16, dpi = 450}
-kc_rvp %>%
+kc_rvp_norm %>%
   ggplot(
     aes(
-      x = game_half, y = n, group = game_week, 
-      color = if_else(game_num %in% c(3, 4, 11, 15), "#ff2b4f", "#003399")
+      x = game_half, y = ratio, group = week, 
+      color = if_else(game_num %in% kc_games, "#ff2b4f", "#003399")
     )
   ) +
   geom_point() +
@@ -2004,7 +1817,7 @@ kc_rvp %>%
   geom_point(size = 5) +
   geom_text_repel(
     data = filter(
-      kc_rvp, game_num %in% c(3, 4, 11, 15),
+      kc_rvp_norm, game_num %in% kc_games,
       game_half == "2nd Half"
     ),
     aes(label = game_text),
@@ -2016,9 +1829,9 @@ kc_rvp %>%
   theme_538() +
   theme(panel.grid.major.x = element_blank()) +
   labs(x = "", y = "N of Plays\n",
-       title = "In 3 of 4 games where KC established the run they ended up throwing more in the 2nd half",
-       subtitle = "They went 2-2 in these games, and 10-2 in their other games",
-       caption = "Data: @nflscrapR")
+       title = "In 10 of 16 games KC ran the ball more in the 2nd half than in the 1st",
+       subtitle = "They were 9-1 in these games, and 3-6 in games where they ran more in the 1st half\nNote that rush frequency is a side-effect of game state when the team was already leading",
+       caption = "Data: @nflfastR | Plot: @thomas_mock")
 
 ```
 
@@ -2028,7 +1841,7 @@ That's all for this section - on to Tables!
 
 ## Tables
 
-You can create beautiful static and interactive tables in `R` through the `gt` and `DT` packages respectively!
+You can create beautiful static and interactive tables in `R` through the `gt` and `reactable` packages respectively!
 
 ### `gt`
 
@@ -2038,16 +1851,16 @@ Let's do a quick analysis!
 
 #### Basic Table
 
-Let's go back to our `schotty` example!
+Let's go back to our `kc` example!
 
 ```{r}
-schotty
+kc
 ```
 
 We can quickly convert this to a table!
 
 ```{r}
-schotty %>%
+kc %>%
   slice(1:5, 28:32) %>%
   gt()
 ```
@@ -2055,20 +1868,20 @@ schotty %>%
 And then we can make some changes!
 
 ```{r}
-schotty_gt <- schotty %>%
+kc_gt <- kc %>%
   slice(1:5, 28:32) %>%
   arrange(desc(mean_pass)) %>%
   mutate(play_focus = if_else(mean_pass >= .50, "Pass Heavy", "Run Heavy")) %>%
-  group_by(play_focus) %>%
-  gt()
+  gt(groupname_col = "play_focus",
+     rowname_col = "posteam")
 
-schotty_gt
+kc_gt
 ```
 
 #### Fancier Table
 
 ```{r}
-schotty_gt %>%
+kc_gt %>%
   fmt_percent(columns = vars(mean_pass), decimals = 1) %>%
   tab_header(
     title = "Percentage of Passes by teams on 1st/2nd Down in 1st Half",
@@ -2083,7 +1896,7 @@ schotty_gt %>%
     align = "center"
   ) %>%
   tab_source_note(
-    source_note = "Table: @thomas_mock | Data: @nflscrapR"
+    source_note = "Table: @thomas_mock | Data: @nflfastR | Plot: @thomas_mock"
   )
 ```
 
@@ -2097,11 +1910,11 @@ For this example, we'll grab just some specific players:
 And compare their performance when catching the ball on 3rd down, with a few specific criteria.
 
 ```{r}
-# 2018 and pass plays
-pass_2018 <- pbp_rp %>%
+# 2019 and pass plays
+pass_2019 <- pbp %>%
   filter(play_type == "pass", penalty == 0, sack == 0, qb_scramble == 0)
 
-third_down_passes <- pass_2018 %>%
+third_down_passes <- pass_2019 %>%
   filter(down == 3, ydstogo <= 10) %>%
   group_by(receiver_player_name) %>%
   mutate(converted = if_else(yards_gained > ydstogo, 1, 0)) %>%
@@ -2117,16 +1930,16 @@ third_down_passes <- pass_2018 %>%
   arrange(desc(conv_rate))
 
 rbs <- c(
-  "A.Kamara", "J.White", "J.Conner", "C.McCaffrey", "S.Barkley", "E.Elliott",
-  "J.Mixon", "T.Gurley", "D.Johnson", "M.Gordon"
+  "A.Kamara", "J.White", "C.McCaffrey", "S.Barkley", "E.Elliott",
+  "D.Cook", "T.Gurley"
 )
 
 wrs <- c(
-  "D.Westbrook", "A.Humphries", "C.Kupp", "G.Tate", "D.Pettis", "J.Edelman",
-  "C.Kupp", "W.Snead IV", "M.Sanu", "T.Lockett", "T.Gabriel", "S.Shepard", "C.Beasley"
+  "A.Thielen", "C.Kupp", "G.Tate", "J.Edelman",
+  "C.Kupp", "T.Lockett", "S.Shepard", "C.Godwin"
 )
 
-tes <- c("T.Kelce", "Z.Ertz", "G. Kittle", "E.Engram", "J.Cook", "E.Ebron")
+tes <- c("T.Kelce", "Z.Ertz", "G. Kittle", "E.Engram", "D.Waller", "M.Andrews")
 
 top_players <- c(rbs, wrs, tes)
 ```
@@ -2182,7 +1995,7 @@ third_conv_table %>%
     align = "center"
   ) %>% 
   tab_source_note(
-    source_note = "Table: @thomas_mock | Data: @nflscrapR"
+    source_note = "Table: @thomas_mock | Data: @nflfastR | Plot: @thomas_mock"
   ) %>% 
   tab_footnote(
     footnote = "Average Yards",
@@ -2227,8 +2040,7 @@ rb_receiving %>%
   ) %>%
   tab_options(
     table.border.top.color = "white",
-    row.striping.include_table_body = FALSE,
-    row.padding = px(4)
+    row.striping.include_table_body = FALSE
   ) %>%
   tab_source_note(
     source_note = "SOURCE: ESPN STATS & INFORMATION GROUP"
@@ -2237,7 +2049,7 @@ rb_receiving %>%
     style = list(
       cell_fill(color = "lightblue")
     ),
-    locations = cells_data(
+    locations = cells_body(
       columns = vars(success_rate)
     )
   ) %>%
@@ -2281,8 +2093,7 @@ rodgers_table <- rodgers %>%
   gt() %>%
   tab_options(
     table.border.top.color = "white",
-    row.striping.include_table_body = FALSE,
-    row.padding = px(4)
+    row.striping.include_table_body = FALSE
   ) %>%
   tab_source_note(
     source_note = "SOURCE: ESPN STATS & INFORMATION GROUP"
@@ -2322,7 +2133,7 @@ rodgers_table %>%
     style = cell_text(
       weight = "bold"
     ),
-    locations = cells_data(
+    locations = cells_body(
       rows = player == "Aaron Rodgers"
     )
   )
@@ -2347,18 +2158,16 @@ Specific libraries used for this example seen below.
 
 ```{r, eval = FALSE}
 # Load Libraries ----------------------------------------------------------
-
-library(rvest)
 library(tidyverse)
 library(glue)
 library(gganimate)
-library(teamcolors)
+library(espnscrapeR)
 library(ggimage)
 ```
   
 We'll be loading data about team logos from Michael Lopez' github, team colors from `teamcolors` package, and scraping the QBR data from ESPN.
   
-```{r}
+```{r, eval = FALSE}
 # Load Data for Team Logos & Colors ---------------------------------------
 
 df_logos <- read_csv("https://raw.githubusercontent.com/statsbylopez/BlogPosts/master/nfl_teamlogos.csv")
@@ -2369,36 +2178,12 @@ nfl_colors <- teamcolors %>%
 
 ```
   
-We'll create a function that we apply across multiple inputs. Otherwise we'd need to call the scraping function 14 separate times!
-  
-```{r}
-# Weekly NFL ratings by ESPN Scrape Function ------------------------------
-
-qbr_weekly <- function(week){
-  
-  # Be respectful - always pause between scraping sessions
-  Sys.sleep(5)
-  
-  # Build up URL
-  url <- glue::glue("http://www.espn.com/nfl/qbr/_/year/2019/type/player-week/week/{week}")
-  
-  url %>% 
-    read_html() %>% 
-    html_table() %>% 
-    .[[1]] %>% 
-    set_names(nm = .[1,]) %>% 
-    janitor::clean_names() %>% 
-    filter(player != "PLAYER") %>% 
-    as_tibble() %>% 
-    mutate(week = week)
-}
-
-```
+My [`espnscrapeR` pkg](https://jthomasmock.github.io/espnscrapeR/) has a function called `get_nfl_qbr()` to collect data from ESPN's API about their QBR scores.
 
 We can test the function on week 1 data, and then call it on all the data so far (weeks 1 - 14).
 
 ```{r}
-qbr_weekly(1)
+espnscrapeR::get_nfl_qbr(week = 14)
 ```
 
 We can see that the scrape worked, and we have the necessary data to move forward.
@@ -2412,10 +2197,7 @@ We can use the function multiple times with various inputs via the `purrr` packa
 # Scrape and clean up QBR Data --------------------------------------------
 
 raw_qbr <- 1:14 %>% 
-  map_dfr(.f = qbr_weekly) %>% 
-  mutate_at(.vars = vars(rk, pts_added:week), as.double) %>% 
-  separate(player, into = c("player", "team_abb"), sep = ",") %>% 
-  mutate_at(.vars = vars(player, team_abb), str_trim)
+  map_dfr(.f = ~espnscrapeR::get_nfl_qbr(week = .x))
 
 ```
 
@@ -2430,15 +2212,13 @@ We need to also attach the team color data and the team logos. We'll use `dplyr:
 
 all_qbr <- raw_qbr %>% 
   mutate(team_abb = case_when(
-    team_abb == "WSH" ~ "WAS",
-    team_abb == "LAR" ~ "LA",
-    TRUE ~ team_abb
+    team == "WSH" ~ "WAS",
+    TRUE ~ team
   )) %>% 
-  left_join(df_logos, by = c("team_abb" = "team_code")) %>% 
-  group_by(week) %>% 
+  group_by(game_week) %>% 
   mutate(rk = row_number()) %>% 
   ungroup() %>% 
-  left_join(nfl_colors, by = "team") 
+  left_join(nflfastR::teams_colors_logos, by = c("team" = "team_abbr")) 
 ```
 
 #### Create rolling average
@@ -2448,8 +2228,9 @@ The data from ESPN is weekly ratings, so we'll need to create a rolling average 
 ```{r, eval = FALSE}
 # Add Rolling Average -----------------------------------------------------
 average_qbr <- all_qbr %>% 
-  group_by(player) %>% 
-  mutate(avg_qbr = cummean(total_qbr)) %>% 
+  group_by(short_name) %>% 
+  mutate(avg_qbr = cummean(qbr_total),
+         game_week = as.double(game_week)) %>% 
   ungroup()
 
 ```
@@ -2465,21 +2246,22 @@ The big player here is `transition_states()`, `enter_fade()`, and `exit_shrink()
 ```{r, eval = FALSE}
 # Weekly Bar Plot ---------------------------------------------------------
 
+asp_ratio <- 1.618
+
 weekly_plot <- average_qbr %>% 
-  group_by(week) %>% 
-  arrange(desc(avg_qbr)) %>% 
-  mutate(rk = row_number()) %>% 
-  ungroup() %>% 
-  ggplot(aes(x = rk, y = avg_qbr)) +
-  geom_col(aes(fill = primary, color = primary), alpha = 0.7) +
-  geom_image(aes(image = url), size = 0.05) +
+  ggplot(aes(x = rank, y = avg_qbr)) +
+  geom_col(aes(fill = team_color, color = team_color), alpha = 0.7) +
+  geom_image(aes(image = team_logo_wikipedia), size = 0.035, by = "width", asp = asp_ratio) +
   scale_color_identity(aesthetics = c("color", "fill")) +
-  ggthemes::theme_fivethirtyeight() +
-  theme(panel.grid.major.x = element_blank(),
-        legend.position = "none") +
+  ggthemes::theme_fivethirtyeight() + facet_wrap(~game_week) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    legend.position = "none",
+    aspect.ratio = asp_ratio
+    ) +
   scale_x_continuous(breaks = seq(0, 30, 5)) +
   transition_states(
-    week,
+    game_week,
     transition_length = 5, 
     state_length = 20
   ) +
@@ -2511,15 +2293,18 @@ Since we have moved week to the x-axis - we are now creating new plots across th
 
 total_plot <- average_qbr %>%
   filter(team_abb %in% c("GB", "BAL", "MIN", "DAL", "SEA", "HOU", "KC")) %>% 
-  ggplot(aes(x = week, y = avg_qbr, group = team)) +
+  ggplot(aes(x = game_week, y = avg_qbr, group = team)) +
   geom_segment(aes(xend = 15, yend = avg_qbr), linetype = 2, color = 'grey') +
   geom_line(aes(color = primary), alpha = 0.7, size = 2) +
-  geom_image(aes(x = 15, image = url), size = 0.05) +
+  geom_image(aes(image = team_logo_wikipedia), size = 0.035, by = "width", asp = asp_ratio) +
   scale_color_identity(aesthetics = c("color", "fill")) +
   ggthemes::theme_fivethirtyeight() +
-  theme(panel.grid.major.x = element_blank(),
-        legend.position = "none",
-        axis.title = element_text(face = "bold")) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    legend.position = "none",
+    aspect.ratio = asp_ratio,
+    axis.title.x = element_text(face = "bold")
+    ) +
   scale_x_continuous(breaks = seq(0, 14, 1)) +
   coord_cartesian(clip = "off") + 
   transition_reveal(week) + 
